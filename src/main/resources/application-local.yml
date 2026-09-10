@@ -1,0 +1,57 @@
+# Perfil LOCAL: pensado para desarrollar/probar sin depender de Oracle RDS,
+# Amazon MQ ni Eureka/Config Server reales. Se activa por defecto
+# (spring.profiles.active=local en application.yml) si no se define
+# SPRING_PROFILES_ACTIVE.
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  datasource:
+    url: jdbc:h2:mem:gastos_comunes;MODE=Oracle;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: false
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        # En false por defecto: si no tienes RabbitMQ corriendo localmente,
+        # la app igual levanta (el Outbox seguirá acumulando filas hasta
+        # que actives el listener/consumidor).
+        auto-startup: ${RABBITMQ_AUTOSTART:false}
+
+logging:
+  level:
+    com.convivo.gastoscomunes: DEBUG
+
+# El App Registration de la API (528af346) emite tokens v1.0 (sts.windows.net) en vez de
+# v2.0, y su audience real es el App ID URI completo (api://...) -- ver decodificación del
+# access token real usado para diagnosticar esto. Mismo workaround aplicado en bff/.env
+# hasta corregir accessTokenAcceptedVersion=2 en el manifest de esa app en Azure Portal.
+convivo:
+  entra:
+    issuer: https://sts.windows.net/936612c7-66b8-41ba-a9dd-83f50365f818/
+    jwks-uri: https://login.microsoftonline.com/936612c7-66b8-41ba-a9dd-83f50365f818/discovery/v2.0/keys
+    audience: api://528af346-c37c-40a0-9f7e-30162de3c027
