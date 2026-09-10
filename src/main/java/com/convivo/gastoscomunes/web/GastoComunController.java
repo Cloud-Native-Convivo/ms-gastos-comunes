@@ -15,9 +15,11 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -68,6 +70,19 @@ public class GastoComunController {
     @GetMapping("/{id}")
     public GastoComunResponse obtener(@PathVariable Long id) {
         return GastoComunResponse.desde(service.obtener(id, usuarioContexto));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','COMITE')")
+    public GastoComunResponse actualizar(@PathVariable Long id, @Valid @RequestBody GastoComunRequest request) {
+        return GastoComunResponse.desde(service.actualizar(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','COMITE')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void eliminar(@PathVariable Long id) {
+        service.eliminar(id);
     }
 
     @PostMapping("/{id}/pagos")

@@ -26,7 +26,7 @@ public record GastoComunResponse(
                 gasto.getConcepto(),
                 gasto.getMonto(),
                 gasto.getSaldoPendiente(),
-                gasto.getEstado(),
+                gasto.getEstadoEfectivo(),
                 gasto.getOrigen(),
                 gasto.getReferenciaExterna(),
                 gasto.getFechaVencimiento(),

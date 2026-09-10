@@ -41,6 +41,20 @@ public class GastoComunService {
         return gastoComunRepository.save(gasto);
     }
 
+    /** No permite reasignar la unidad (request.unidadId() se ignora): solo concepto/monto/vencimiento. */
+    public GastoComun actualizar(Long id, GastoComunRequest request) {
+        GastoComun gasto = buscarOLanzar(id);
+        gasto.actualizar(request.concepto(), request.monto(), request.fechaVencimiento());
+        return gastoComunRepository.save(gasto);
+    }
+
+    /** Borrado lógico: un gasto eliminado ya no aparece en listados/consultas. */
+    public void eliminar(Long id) {
+        GastoComun gasto = buscarOLanzar(id);
+        gasto.eliminar();
+        gastoComunRepository.save(gasto);
+    }
+
     @Transactional(readOnly = true)
     public Page<GastoComun> listar(UsuarioContexto usuario, Pageable pageable) {
         if (usuario.esGestorCondominio()) {
@@ -104,7 +118,7 @@ public class GastoComunService {
     private GastoComun buscarOLanzar(Long id) {
         return gastoComunRepository
                 .findById(id)
-                .filter(gasto -> gasto.getEstado() != EstadoGasto.ANULADO)
+                .filter(gasto -> gasto.getEstado() != EstadoGasto.ELIMINADO)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Gasto común " + id + " no encontrado"));
     }
 
