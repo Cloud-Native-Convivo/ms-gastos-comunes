@@ -6,5 +6,5 @@ public enum EstadoGasto {
     PARCIAL,
     PAGADO,
     VENCIDO,
-    ANULADO,
+    ELIMINADO,
 }
