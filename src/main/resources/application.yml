@@ -3,6 +3,12 @@ spring:
     name: ms-gastos-comunes
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
+  # spring-cloud-starter-config exige declarar spring.config.import en
+  # cualquier perfil activo (falla el arranque si falta). "optional:" lo
+  # hace tolerante a que el config-server no esté disponible, igual que
+  # ya declaraba application-aws.yml — acá aplica también al perfil local.
+  config:
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
   jackson:
     default-property-inclusion: non_null
     serialization:
