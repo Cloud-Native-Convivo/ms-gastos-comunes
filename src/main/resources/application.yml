@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: ms-gastos-comunes
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: ${SERVER_PORT:8083}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+
+# Sin conexión a Eureka/Config Server salvo que el perfil activo la habilite
+# explícitamente (ver application-aws.yml). Evita que el arranque local
+# falle intentando resolver un Eureka/Config Server inexistente.
+eureka:
+  client:
+    enabled: false
+
+# --- Microsoft Entra ID (validación JWT autónoma, Nivel 3) ---
+# Mismas variables que usa el BFF (ver bff/.env.example) para validar el
+# mismo tenant/token de forma independiente.
+convivo:
+  entra:
+    issuer: ${ENTRA_ISSUER:https://login.microsoftonline.com/${ENTRA_TENANT_ID:}/v2.0}
+    jwks-uri: ${ENTRA_JWKS_URI:https://login.microsoftonline.com/${ENTRA_TENANT_ID:}/discovery/v2.0/keys}
+    audience: ${ENTRA_API_CLIENT_ID:528af346-c37c-40a0-9f7e-30162de3c027}
+    claim-de-rol: ${CLAIM_DE_ROL:roles}
+    claim-separador: ${CLAIM_SEPARADOR:,}
+    claim-map: {}
+
+  # --- RabbitMQ / Amazon MQ: topología Outbox/Inbox (ver RabbitMqConfig) ---
+  mensajeria:
+    exchange-eventos: ${RABBITMQ_EXCHANGE_EVENTOS:espacios_events}
+    cola-reserva-creada: ${RABBITMQ_COLA_RESERVA_CREADA:gastos_reserva_creada_queue}
+    routing-key-reserva-creada: ${RABBITMQ_ROUTING_KEY_RESERVA_CREADA:reserva_espacio_creada}
+    routing-key-gasto-fallido: ${RABBITMQ_ROUTING_KEY_GASTO_FALLIDO:gasto_fallido}
+    cola-compensacion: ${RABBITMQ_COLA_COMPENSACION:espacios_compensacion_queue}
+    dlx: ${RABBITMQ_DLX:gastos.dlx}
+    cola-dead-letter: ${RABBITMQ_COLA_DEAD_LETTER:gastos_reserva_creada_dlq}
+    outbox-intervalo-ms: ${OUTBOX_INTERVALO_MS:5000}
+    outbox-lote-maximo: ${OUTBOX_LOTE_MAXIMO:50}
+    outbox-max-intentos: ${OUTBOX_MAX_INTENTOS:10}
+    listener-max-reintentos: ${LISTENER_MAX_REINTENTOS:3}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
