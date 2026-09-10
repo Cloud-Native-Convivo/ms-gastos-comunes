@@ -13,6 +13,7 @@ import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFacto
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.RabbitListenerContainerFactory;
+import org.springframework.boot.autoconfigure.amqp.SimpleRabbitListenerContainerFactoryConfigurer;
 import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 import org.springframework.amqp.core.AcknowledgeMode;
 import org.springframework.amqp.support.converter.SimpleMessageConverter;
@@ -113,9 +114,14 @@ public class RabbitMqConfig {
      * configurada en la cola (evita loops infinitos de reentrega).
      */
     @Bean
-    public RabbitListenerContainerFactory<?> rabbitListenerContainerFactory(ConnectionFactory connectionFactory) {
+    public RabbitListenerContainerFactory<?> rabbitListenerContainerFactory(
+            SimpleRabbitListenerContainerFactoryConfigurer configurer, ConnectionFactory connectionFactory) {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
-        factory.setConnectionFactory(connectionFactory);
+        // Aplica spring.rabbitmq.listener.simple.* (incluye auto-startup,
+        // prefetch, concurrency) desde application-*.yml — sin esto el
+        // factory ignoraba RABBITMQ_AUTOSTART y el listener siempre
+        // arrancaba, aunque el perfil local lo pida desactivado.
+        configurer.configure(factory, connectionFactory);
         factory.setMessageConverter(new SimpleMessageConverter());
         factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
         factory.setAdviceChain(retryInterceptor());
