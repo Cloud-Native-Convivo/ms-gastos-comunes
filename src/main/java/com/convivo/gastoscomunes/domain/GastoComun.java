@@ -94,8 +94,8 @@ public class GastoComun {
 
     /** Aplica un abono/pago al saldo pendiente y recalcula el estado. */
     public void aplicarPago(BigDecimal montoPago) {
-        if (estado == EstadoGasto.ANULADO) {
-            throw new IllegalStateException("No se puede pagar un gasto anulado");
+        if (estado == EstadoGasto.ELIMINADO) {
+            throw new IllegalStateException("No se puede pagar un gasto eliminado");
         }
         this.saldoPendiente = this.saldoPendiente.subtract(montoPago);
         if (this.saldoPendiente.compareTo(BigDecimal.ZERO) <= 0) {
@@ -104,6 +104,42 @@ public class GastoComun {
         } else {
             this.estado = EstadoGasto.PARCIAL;
         }
+    }
+
+    /**
+     * Edita concepto/monto/vencimiento. El saldo pendiente se recalcula
+     * conservando lo ya pagado ({@code monto actual - saldoPendiente}), para
+     * no perder abonos ya registrados al cambiar el monto total.
+     */
+    public void actualizar(String concepto, BigDecimal monto, LocalDate fechaVencimiento) {
+        if (estado == EstadoGasto.ELIMINADO) {
+            throw new IllegalStateException("No se puede modificar un gasto eliminado");
+        }
+        BigDecimal pagado = this.monto.subtract(this.saldoPendiente);
+        this.concepto = concepto;
+        this.monto = monto;
+        this.fechaVencimiento = fechaVencimiento;
+
+        BigDecimal nuevoSaldo = monto.subtract(pagado);
+        this.saldoPendiente = nuevoSaldo.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : nuevoSaldo;
+        if (this.saldoPendiente.compareTo(BigDecimal.ZERO) <= 0) {
+            this.estado = EstadoGasto.PAGADO;
+        } else if (pagado.compareTo(BigDecimal.ZERO) > 0) {
+            this.estado = EstadoGasto.PARCIAL;
+        } else {
+            this.estado = EstadoGasto.PENDIENTE;
+        }
+    }
+
+    /** Borrado lógico: deja de listarse/consultarse (ver GastoComunService.buscarOLanzar). */
+    public void eliminar() {
+        if (estado == EstadoGasto.PAGADO) {
+            throw new IllegalStateException("No se puede eliminar un gasto ya pagado");
+        }
+        if (estado == EstadoGasto.ELIMINADO) {
+            throw new IllegalStateException("El gasto ya está eliminado");
+        }
+        this.estado = EstadoGasto.ELIMINADO;
     }
 
     public Long getId() {
@@ -127,6 +163,20 @@ public class GastoComun {
     }
 
     public EstadoGasto getEstado() {
+        return estado;
+    }
+
+    /**
+     * Estado efectivo para mostrar: un gasto PENDIENTE/PARCIAL cuya fecha
+     * de vencimiento ya pasó se muestra como VENCIDO. Se deriva en cada
+     * lectura (no se persiste) para no depender de un job programado que
+     * mantenga el campo {@code estado} al día.
+     */
+    public EstadoGasto getEstadoEfectivo() {
+        boolean puedeVencer = estado == EstadoGasto.PENDIENTE || estado == EstadoGasto.PARCIAL;
+        if (puedeVencer && fechaVencimiento != null && fechaVencimiento.isBefore(LocalDate.now())) {
+            return EstadoGasto.VENCIDO;
+        }
         return estado;
     }
 
