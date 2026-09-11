@@ -1,0 +1,24 @@
+# Dependabot — actualizaciones automáticas de dependencias
+version: 2
+updates:
+  # Dependencias Java (pom.xml)
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - java
+
+  # Imagen base de contenedor (Dockerfile)
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - docker
