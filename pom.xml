@@ -34,7 +34,7 @@
       https://central.sonatype.com/artifact/com.oracle.database.jdbc/ojdbc11/versions
       (o corre `mvn versions:display-dependency-updates`).
     -->
-    <ojdbc11.version>23.5.0.24.07</ojdbc11.version>
+    <ojdbc11.version>23.26.3.0.0</ojdbc11.version>
   </properties>
 
   <dependencyManagement>
