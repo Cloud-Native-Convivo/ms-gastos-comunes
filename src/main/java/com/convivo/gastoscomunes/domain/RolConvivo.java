@@ -29,9 +29,4 @@ public enum RolConvivo {
             return Optional.empty();
         }
     }
-
-    /** Roles con visión y administración total de gastos comunes. */
-    public boolean esGestorCondominio() {
-        return this == ADMINISTRADOR || this == COMITE;
-    }
 }

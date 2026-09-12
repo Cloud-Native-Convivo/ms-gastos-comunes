@@ -78,10 +78,6 @@ public class Pago {
         return id;
     }
 
-    public GastoComun getGastoComun() {
-        return gastoComun;
-    }
-
     public Long getGastoComunId() {
         return gastoComunId;
     }
