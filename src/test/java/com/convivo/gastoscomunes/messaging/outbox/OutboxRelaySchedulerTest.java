@@ -27,7 +27,7 @@ class OutboxRelaySchedulerTest {
 
     private final MensajeriaProperties props = new MensajeriaProperties(
             "espacios_events", "gastos_reserva_creada_queue", "reserva_espacio_creada", "gasto_fallido",
-            "espacios_compensacion_queue", "gastos.dlx", "gastos_reserva_creada_dlq", 5000L, 50, 10, 3);
+            "gastos.dlx", "gastos_reserva_creada_dlq", 50, 10, 3);
 
     @Test
     void marcaPublicadoCuandoRabbitConfirmaElEnvio() {

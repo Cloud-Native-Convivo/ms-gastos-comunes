@@ -53,7 +53,6 @@ convivo:
     cola-reserva-creada: ${RABBITMQ_COLA_RESERVA_CREADA:gastos_reserva_creada_queue}
     routing-key-reserva-creada: ${RABBITMQ_ROUTING_KEY_RESERVA_CREADA:reserva_espacio_creada}
     routing-key-gasto-fallido: ${RABBITMQ_ROUTING_KEY_GASTO_FALLIDO:gasto_fallido}
-    cola-compensacion: ${RABBITMQ_COLA_COMPENSACION:espacios_compensacion_queue}
     dlx: ${RABBITMQ_DLX:gastos.dlx}
     cola-dead-letter: ${RABBITMQ_COLA_DEAD_LETTER:gastos_reserva_creada_dlq}
     outbox-intervalo-ms: ${OUTBOX_INTERVALO_MS:5000}

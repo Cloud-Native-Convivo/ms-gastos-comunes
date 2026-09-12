@@ -1,21 +1,37 @@
-# Build multi-stage: compila con Maven + JDK 21, corre con solo JRE 21.
-# Usa la imagen oficial de Maven (el proyecto no incluye Maven Wrapper).
-FROM maven:3.9-eclipse-temurin-21 AS build
+# ============================================
+# Etapa 1: Descargar dependencias (cache)
+# ============================================
+FROM eclipse-temurin:21-jdk-alpine AS deps
+WORKDIR /app
+COPY pom.xml ./
+COPY .mvn .mvn
+COPY mvnw ./
+RUN chmod +x mvnw && ./mvnw -B dependency:go-offline
+
+# ============================================
+# Etapa 2: Compilar la aplicación
+# ============================================
+FROM deps AS build
+COPY src ./src
+RUN ./mvnw -B package -DskipTests
+
+# ============================================
+# Etapa 3: Imagen final liviana
+# ============================================
+FROM eclipse-temurin:21-jre-alpine
+RUN apk add --no-cache curl
+
 WORKDIR /app
 
-COPY pom.xml .
-# Cachea dependencias en su propia capa (solo se re-descargan si pom.xml cambia).
-RUN mvn -B dependency:go-offline || true
-
-COPY src src
-RUN mvn -B clean package -DskipTests
-
-FROM eclipse-temurin:21-jre-jammy
-WORKDIR /app
-RUN useradd --system --create-home appuser
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
 COPY --from=build /app/target/ms-gastos-comunes.jar app.jar
 
 EXPOSE 8083
+
+# Verifica que Spring Boot esté vivo
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:8083/actuator/health/liveness || exit 1
+
 ENTRYPOINT ["java", "-jar", "app.jar"]

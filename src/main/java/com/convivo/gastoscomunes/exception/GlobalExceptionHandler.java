@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -35,6 +36,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(OperacionNoPermitidaException.class)
     public ResponseEntity<ErrorResponse> manejarNoPermitida(OperacionNoPermitidaException ex, HttpServletRequest req) {
         return responder(HttpStatus.FORBIDDEN, "FORBIDDEN", ex.getMessage(), req);
+    }
+
+    /**
+     * Spring Security 6.3 lanza esta excepción (no {@code AccessDeniedException})
+     * cuando un {@code @PreAuthorize} de método deniega el acceso; nace dentro
+     * de {@code DispatcherServlet.doDispatch()}, así que sin este handler caía
+     * en {@link #manejarGenerica} (500) en vez de llegarle al
+     * {@code AccessDeniedHandler} de {@code SecurityConfig}.
+     */
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ErrorResponse> manejarAutorizacionDenegada(AuthorizationDeniedException ex, HttpServletRequest req) {
+        return responder(HttpStatus.FORBIDDEN, "FORBIDDEN", "No tiene permisos para esta operación", req);
     }
 
     @ExceptionHandler(IllegalStateException.class)

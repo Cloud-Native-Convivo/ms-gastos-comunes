@@ -104,6 +104,32 @@ intentan usar pero de forma **tolerante** — igual que el BFF con
 RabbitMQ: si `CONFIG_SERVER_URL` no responde, el arranque continúa
 (`optional:configserver:`) en vez de fallar.
 
+## Ejecutar con Docker (Oracle real en contenedor)
+
+```bash
+docker compose up --build
+```
+
+Levanta un Oracle Database Free 23ai dedicado (`oracle-gastos`, puerto
+**1522** en el host — 1521 lo usa `oracle-espacios` si corre a la vez) y
+el microservicio en perfil `aws` contra esa base real (Flyway corre la
+migración inicial automáticamente). Verificado extremo a extremo: la
+imagen compila con el Maven Wrapper (mismo patrón que
+`config-server-cloud`/`discovery-server-cloud`), Hikari conecta a
+Oracle, Flyway aplica `V1__init.sql` y el servicio responde en `:8083`.
+
+**RabbitMQ no se levanta en este `docker-compose.yml` a propósito**: es
+el mismo broker que consume/publica `ms-espacios-comunes` (saga
+`reserva_espacio_creada` / `gasto_fallido`), así que lo trae el compose
+de ese servicio en la misma red compartida `convivo-network` — acá solo
+se referencia por nombre (`rabbitmq:5672`). Si corres este servicio solo,
+el listener queda reintentando sin bloquear el arranque (mismo criterio
+tolerante que documenta la sección de arriba).
+
+`EUREKA_URL`/`CONFIG_SERVER_URL` apuntan a `discovery-server`/`config-server`
+en esa misma red — levántalos con sus propios `docker compose up` (o
+usa `EUREKA_ENABLED=false` si solo quieres probar Oracle).
+
 ## Tests
 
 ```bash
