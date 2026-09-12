@@ -1,7 +1,7 @@
 # ============================================
 # Etapa 1: Descargar dependencias (cache)
 # ============================================
-FROM eclipse-temurin:21-jdk-alpine AS deps
+FROM eclipse-temurin:25-jdk-alpine AS deps
 WORKDIR /app
 COPY pom.xml ./
 COPY .mvn .mvn
@@ -18,7 +18,7 @@ RUN ./mvnw -B package -DskipTests
 # ============================================
 # Etapa 3: Imagen final liviana
 # ============================================
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 RUN apk add --no-cache curl
 
 WORKDIR /app
