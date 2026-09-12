@@ -27,3 +27,6 @@ Thumbs.db
 
 # Config local con datos sensibles (si se llega a crear)
 application-local-secrets.yml
+
+# Indices de analisis de codigo
+.codegraph/
