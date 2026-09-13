@@ -85,8 +85,16 @@ public class SecurityConfig {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(entra.jwksUri()).build();
 
         OAuth2TokenValidator<Jwt> conIssuer = JwtValidators.createDefaultWithIssuer(entra.issuer());
+        // Entra ID emite "aud" como el App ID URI (api://<clientId>), no el
+        // clientId plano configurado en ENTRA_API_CLIENT_ID/ENTRA_AUDIENCE;
+        // el BFF ya acepta ambas formas (ver jwt.strategy.ts), este validador
+        // debe hacer lo mismo o rechaza tokens validos con 401.
+        String audienceLimpia = entra.audience().replaceFirst("^api://", "");
+        String audienceConPrefijo = "api://" + audienceLimpia;
         OAuth2TokenValidator<Jwt> conAudience = new JwtClaimValidator<List<String>>(
-                "aud", audiences -> audiences != null && audiences.contains(entra.audience()));
+                "aud",
+                audiences -> audiences != null
+                        && (audiences.contains(audienceLimpia) || audiences.contains(audienceConPrefijo)));
 
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(conIssuer, conAudience));
         return decoder;
