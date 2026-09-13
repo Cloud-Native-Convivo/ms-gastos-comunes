@@ -5,6 +5,9 @@ import com.convivo.gastoscomunes.security.JwtRolesConverter;
 import com.convivo.gastoscomunes.security.UsuarioContexto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -84,7 +87,17 @@ public class SecurityConfig {
     public JwtDecoder jwtDecoder() {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(entra.jwksUri()).build();
 
-        OAuth2TokenValidator<Jwt> conIssuer = JwtValidators.createDefaultWithIssuer(entra.issuer());
+        // Entra ID emite v1.0 access tokens con iss="https://sts.windows.net/{tid}/"
+        // aunque el issuer configurado (ENTRA_ISSUER) sea el v2.0
+        // ("https://login.microsoftonline.com/{tid}/v2.0"); el BFF ya tolera
+        // ambos formatos (ver jwt.strategy.ts), este validador debe hacer lo
+        // mismo o rechaza tokens reales con 401 "Token ausente, invalido o expirado".
+        Matcher tenantMatcher = Pattern.compile("microsoftonline\\.com/([^/]+)/").matcher(entra.issuer());
+        Set<String> issuersValidos = tenantMatcher.find()
+                ? Set.of(entra.issuer(), "https://sts.windows.net/" + tenantMatcher.group(1) + "/")
+                : Set.of(entra.issuer());
+        OAuth2TokenValidator<Jwt> conIssuer = new DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefault(), new JwtClaimValidator<String>("iss", issuersValidos::contains));
         // Entra ID emite "aud" como el App ID URI (api://<clientId>), no el
         // clientId plano configurado en ENTRA_API_CLIENT_ID/ENTRA_AUDIENCE;
         // el BFF ya acepta ambas formas (ver jwt.strategy.ts), este validador
