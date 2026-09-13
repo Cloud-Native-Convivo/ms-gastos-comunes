@@ -79,7 +79,28 @@ public class IdentityContextFilter extends OncePerRequestFilter {
                 roles.add(nombre.substring("ROLE_".length()).toLowerCase());
             }
         }
+        if (roles.isEmpty()) {
+            String headerRoles = request.getHeader("X-Usuario-Roles");
+            if (headerRoles != null && !headerRoles.isBlank()) {
+                for (String parte : headerRoles.split(",")) {
+                    String limpio = parte.trim().toLowerCase();
+                    if (!limpio.isBlank()) {
+                        roles.add(limpio.equals("admin") ? "administrador" : limpio);
+                    }
+                }
+            }
+        }
         usuarioContexto.setRoles(roles);
+
+        if (!roles.isEmpty() && !autoridades.iterator().hasNext()) {
+            java.util.List<GrantedAuthority> nuevasAutoridades = roles.stream()
+                    .map(r -> (GrantedAuthority) new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + r.toUpperCase()))
+                    .toList();
+            org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken nuevoAuth =
+                    new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(
+                            jwt, nuevasAutoridades, usuarioSub);
+            SecurityContextHolder.getContext().setAuthentication(nuevoAuth);
+        }
 
         String headerSub = request.getHeader(HEADER_USUARIO_SUB);
         if (headerSub != null && usuarioSub != null && !headerSub.equals(usuarioSub)) {
