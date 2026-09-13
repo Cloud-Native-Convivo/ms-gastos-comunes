@@ -23,8 +23,12 @@ public enum RolConvivo {
         if (valor == null || valor.isBlank()) {
             return Optional.empty();
         }
+        String normalizado = valor.trim().toUpperCase(Locale.ROOT);
+        if ("ADMIN".equals(normalizado)) {
+            return Optional.of(ADMINISTRADOR);
+        }
         try {
-            return Optional.of(RolConvivo.valueOf(valor.trim().toUpperCase(Locale.ROOT)));
+            return Optional.of(RolConvivo.valueOf(normalizado));
         } catch (IllegalArgumentException ex) {
             return Optional.empty();
         }

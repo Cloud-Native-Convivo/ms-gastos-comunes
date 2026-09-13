@@ -47,16 +47,9 @@ public class JwtRolesConverter implements Converter<Jwt, Collection<GrantedAutho
                             new SimpleGrantedAuthority("ROLE_" + rol.name())));
         }
 
-        if (autoridades.isEmpty() && raw == null) {
-            // Entra ID es exclusivo del panel de administración (mismo supuesto
-            // que bff/src/auth/identity-mapper.ts): si el tenant no tiene App
-            // Roles configurados en Azure AD, el token no trae claim "roles" en
-            // absoluto y el usuario autenticado por Entra asume ADMINISTRADOR
-            // por defecto en el demo. Si el claim SÍ vino pero con valores que
-            // no mapean a un rol conocido, se respeta sin autoridades (ver
-            // ignoraValoresQueNoMapeanAUnRolConocido).
-            autoridades.add(new SimpleGrantedAuthority("ROLE_" + RolConvivo.ADMINISTRADOR.name()));
-        }
+        // Principio de mínimo privilegio (PoLP): si el token no incluye
+        // claim de roles asignados en Entra ID, no se otorgan autoridades
+        // administrativas por defecto.
         return autoridades;
     }
 
