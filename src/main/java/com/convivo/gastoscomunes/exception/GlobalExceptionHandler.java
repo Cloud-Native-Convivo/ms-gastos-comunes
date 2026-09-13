@@ -45,8 +45,8 @@ public class GlobalExceptionHandler {
      * en {@link #manejarGenerica} (500) en vez de llegarle al
      * {@code AccessDeniedHandler} de {@code SecurityConfig}.
      */
-    @ExceptionHandler(AuthorizationDeniedException.class)
-    public ResponseEntity<ErrorResponse> manejarAutorizacionDenegada(AuthorizationDeniedException ex, HttpServletRequest req) {
+    @ExceptionHandler({AuthorizationDeniedException.class, org.springframework.security.access.AccessDeniedException.class})
+    public ResponseEntity<ErrorResponse> manejarAutorizacionDenegada(Exception ex, HttpServletRequest req) {
         return responder(HttpStatus.FORBIDDEN, "FORBIDDEN", "No tiene permisos para esta operación", req);
     }
 
