@@ -46,6 +46,10 @@ public class JwtRolesConverter implements Converter<Jwt, Collection<GrantedAutho
                     .ifPresent(rol -> autoridades.add(
                             new SimpleGrantedAuthority("ROLE_" + rol.name())));
         }
+
+        // Principio de mínimo privilegio (PoLP): si el token no incluye
+        // claim de roles asignados en Entra ID, no se otorgan autoridades
+        // administrativas por defecto.
         return autoridades;
     }
 
