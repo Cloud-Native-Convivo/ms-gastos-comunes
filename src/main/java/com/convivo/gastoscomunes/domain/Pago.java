@@ -14,6 +14,8 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /** Un abono/pago (total o parcial) sobre un {@link GastoComun}. */
 @Entity
@@ -52,6 +54,7 @@ public class Pago {
     private String comprobante;
 
     @CreationTimestamp
+    @JdbcTypeCode(SqlTypes.TIMESTAMP)
     @Column(name = "fecha_pago", nullable = false, updatable = false)
     private Instant fechaPago;
 
