@@ -6,6 +6,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * Registro de idempotencia (patrón Inbox): antes de procesar un evento
@@ -25,6 +27,7 @@ public class InboxEvento {
     private String tipo;
 
     @CreationTimestamp
+    @JdbcTypeCode(SqlTypes.TIMESTAMP)
     @Column(name = "fecha_procesado", nullable = false, updatable = false)
     private Instant fechaProcesado;
 
