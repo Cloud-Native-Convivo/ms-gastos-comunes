@@ -13,7 +13,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 /**
  * Un gasto común (cobro/cuota) asociado a una unidad del condominio.
@@ -58,10 +60,12 @@ public class GastoComun {
     private LocalDate fechaVencimiento;
 
     @CreationTimestamp
+    @JdbcTypeCode(SqlTypes.TIMESTAMP)
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
     private Instant fechaCreacion;
 
     @UpdateTimestamp
+    @JdbcTypeCode(SqlTypes.TIMESTAMP)
     @Column(name = "fecha_actualizacion")
     private Instant fechaActualizacion;
 

@@ -12,6 +12,8 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * Fila de la tabla Outbox: se inserta en la <b>misma transacción local</b>
@@ -52,9 +54,11 @@ public class OutboxEvento {
     private int intentos;
 
     @CreationTimestamp
+    @JdbcTypeCode(SqlTypes.TIMESTAMP)
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
     private Instant fechaCreacion;
 
+    @JdbcTypeCode(SqlTypes.TIMESTAMP)
     @Column(name = "fecha_publicacion")
     private Instant fechaPublicacion;
 
