@@ -8,6 +8,8 @@ import com.convivo.gastoscomunes.dto.GastoComunRequest;
 import com.convivo.gastoscomunes.dto.PagoRequest;
 import com.convivo.gastoscomunes.exception.OperacionNoPermitidaException;
 import com.convivo.gastoscomunes.exception.RecursoNoEncontradoException;
+import com.convivo.gastoscomunes.factory.GastoManualFactory;
+import com.convivo.gastoscomunes.factory.GastoReservaFactory;
 import com.convivo.gastoscomunes.repository.GastoComunRepository;
 import com.convivo.gastoscomunes.repository.PagoRepository;
 import com.convivo.gastoscomunes.security.UsuarioContexto;
@@ -28,15 +30,23 @@ public class GastoComunService {
 
     private final GastoComunRepository gastoComunRepository;
     private final PagoRepository pagoRepository;
+    private final GastoManualFactory gastoManualFactory;
+    private final GastoReservaFactory gastoReservaFactory;
 
-    public GastoComunService(GastoComunRepository gastoComunRepository, PagoRepository pagoRepository) {
+    public GastoComunService(
+            GastoComunRepository gastoComunRepository,
+            PagoRepository pagoRepository,
+            GastoManualFactory gastoManualFactory,
+            GastoReservaFactory gastoReservaFactory) {
         this.gastoComunRepository = gastoComunRepository;
         this.pagoRepository = pagoRepository;
+        this.gastoManualFactory = gastoManualFactory;
+        this.gastoReservaFactory = gastoReservaFactory;
     }
 
     public GastoComun crear(GastoComunRequest request) {
-        GastoComun gasto = GastoComun.crear(
-                request.unidadId(), request.concepto(), request.monto(), OrigenGasto.MANUAL, null,
+        GastoComun gasto = gastoManualFactory.crearGasto(
+                request.unidadId(), request.concepto(), request.monto(), null,
                 request.fechaVencimiento());
         return gastoComunRepository.save(gasto);
     }
@@ -111,8 +121,8 @@ public class GastoComunService {
             String unidadId, String concepto, BigDecimal monto, String reservaId) {
         return gastoComunRepository
                 .findByOrigenAndReferenciaExterna(OrigenGasto.RESERVA_ESPACIO, reservaId)
-                .orElseGet(() -> gastoComunRepository.save(GastoComun.crear(
-                        unidadId, concepto, monto, OrigenGasto.RESERVA_ESPACIO, reservaId, null)));
+                .orElseGet(() -> gastoComunRepository.save(gastoReservaFactory.crearGasto(
+                        unidadId, concepto, monto, reservaId, null)));
     }
 
     private GastoComun buscarOLanzar(Long id) {

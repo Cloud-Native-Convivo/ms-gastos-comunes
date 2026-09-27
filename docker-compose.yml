@@ -7,9 +7,9 @@ services:
       # 1522 en el host: 1521 ya lo ocupa oracle-espacios si corre a la vez.
       - "1522:1521"
     environment:
-      ORACLE_PASSWORD: oracle_password
-      APP_USER: admin
-      APP_USER_PASSWORD: oracle_password
+      ORACLE_PASSWORD: ${DB_PASSWORD:-oracle_password}
+      APP_USER: ${DB_USERNAME:-admin}
+      APP_USER_PASSWORD: ${DB_PASSWORD:-oracle_password}
       ORACLE_PDB: freepdb1
     volumes:
       - oracle_gastos_data:/opt/oracle/oradata
@@ -29,10 +29,6 @@ services:
     ports:
       - "8083:8083"
     healthcheck:
-      # /actuator/health (agregado) queda DOWN si RabbitMQ no esta arriba
-      # -- readiness no incluye ese indicador y es lo que de verdad importa
-      # para saber si el servicio puede atender trafico (ver diagnostico
-      # real: readiness/liveness UP con Rabbit caido).
       test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health/readiness || exit 1"]
       interval: 15s
       timeout: 10s
@@ -43,21 +39,15 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: aws
       DB_URL: jdbc:oracle:thin:@//oracle-gastos:1521/freepdb1
-      DB_USERNAME: admin
-      DB_PASSWORD: oracle_password
-      # RabbitMQ NO se define en este compose a proposito: es el mismo
-      # broker que consume/publica ms-espacios-comunes (saga compartida
-      # reserva_espacio_creada / gasto_fallido). Lo levanta el compose de
-      # ms-espacios-comunes en la misma convivo-network; este servicio
-      # solo se conecta por nombre. Si corres gastos-comunes solo (sin
-      # espacios-comunes arriba), el listener queda reintentando sin
-      # bloquear el arranque (mismo criterio tolerante que el perfil local).
+      DB_USERNAME: ${DB_USERNAME:-admin}
+      DB_PASSWORD: ${DB_PASSWORD:-oracle_password}
       RABBITMQ_URLS: rabbitmq:5672
-      RABBITMQ_USERNAME: guest
-      RABBITMQ_PASSWORD: guest
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
       RABBITMQ_SSL_ENABLED: "false"
-      EUREKA_URL: http://discovery-server:8761/eureka/
+      EUREKA_URL: http://admin:${EUREKA_PASSWORD:-admin123}@discovery-server:8761/eureka/
       CONFIG_SERVER_URL: http://config-server:8888
+      JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
     depends_on:
       oracle-gastos:
         condition: service_healthy

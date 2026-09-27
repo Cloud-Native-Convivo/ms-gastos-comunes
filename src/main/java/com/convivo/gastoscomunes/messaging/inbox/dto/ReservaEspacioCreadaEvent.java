@@ -1,5 +1,8 @@
 package com.convivo.gastoscomunes.messaging.inbox.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import java.math.BigDecimal;
 import java.time.Instant;
 
@@ -14,16 +17,17 @@ import java.time.Instant;
  * de eventos rompería el propósito de la arquitectura orientada a
  * eventos.</p>
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record ReservaEspacioCreadaEvent(
-        String eventId,
-        String tipo,
-        String reservaId,
-        String espacioId,
-        String unidadId,
-        String usuarioSub,
-        String concepto,
-        BigDecimal monto,
-        Instant timestamp) {
+        @JsonAlias({"event_id", "eventId", "id"}) String eventId,
+        @JsonAlias({"tipo", "tipo_evento"}) String tipo,
+        @JsonAlias({"reserva_id", "reservaId"}) String reservaId,
+        @JsonAlias({"espacio_id", "espacioId"}) String espacioId,
+        @JsonAlias({"unidad_id", "unidadId"}) String unidadId,
+        @JsonAlias({"usuario_sub", "usuarioSub"}) String usuarioSub,
+        @JsonAlias({"concepto", "descripcion"}) String concepto,
+        @JsonAlias({"monto", "monto_total", "montoTotal"}) BigDecimal monto,
+        @JsonDeserialize(using = FlexibleInstantDeserializer.class) Instant timestamp) {
 
     /**
      * Validación de negocio mínima que este microservicio puede hacer sin
@@ -36,10 +40,11 @@ public record ReservaEspacioCreadaEvent(
                 && reservaId != null && !reservaId.isBlank()
                 && unidadId != null && !unidadId.isBlank()
                 && usuarioSub != null && !usuarioSub.isBlank()
-                && monto != null && monto.signum() > 0;
+                && monto != null && monto.compareTo(BigDecimal.ZERO) >= 0;
     }
 
     public String conceptoOPorDefecto() {
         return (concepto == null || concepto.isBlank()) ? "Reserva Espacio" : concepto;
     }
 }
+

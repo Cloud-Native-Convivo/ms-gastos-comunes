@@ -33,7 +33,12 @@ management:
 # falle intentando resolver un Eureka/Config Server inexistente.
 eureka:
   client:
-    enabled: false
+    enabled: ${EUREKA_CLIENT_ENABLED:true}
+    service-url:
+      defaultZone: ${EUREKA_URL:http://admin:admin123@localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
 
 # --- Microsoft Entra ID (validación JWT autónoma, Nivel 3) ---
 # Mismas variables que usa el BFF (ver bff/.env.example) para validar el
