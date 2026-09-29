@@ -1,5 +1,6 @@
 package com.convivo.gastoscomunes.config;
 
+import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.Binding;
@@ -13,14 +14,14 @@ import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFacto
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.RabbitListenerContainerFactory;
-import org.springframework.boot.autoconfigure.amqp.SimpleRabbitListenerContainerFactoryConfigurer;
+import org.springframework.boot.amqp.autoconfigure.SimpleRabbitListenerContainerFactoryConfigurer;
 import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 import org.springframework.amqp.core.AcknowledgeMode;
 import org.springframework.amqp.support.converter.SimpleMessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.retry.interceptor.RetryOperationsInterceptor;
-import org.springframework.retry.support.RetryTemplate;
+import org.springframework.amqp.rabbit.config.StatelessRetryOperationsInterceptor;
+import org.springframework.core.retry.RetryPolicy;
 
 /**
  * Declara la topología RabbitMQ (Amazon MQ) que consume/publica
@@ -128,13 +129,16 @@ public class RabbitMqConfig {
         return factory;
     }
 
-    private RetryOperationsInterceptor retryInterceptor() {
-        RetryTemplate retryTemplate = RetryTemplate.builder()
-                .maxAttempts(props.listenerMaxReintentos())
-                .exponentialBackoff(500, 2.0, 5000)
+    private StatelessRetryOperationsInterceptor retryInterceptor() {
+        // maxAttempts de spring-retry incluia el intento inicial; maxRetries no.
+        RetryPolicy politica = RetryPolicy.builder()
+                .maxRetries(props.listenerMaxReintentos() - 1)
+                .delay(Duration.ofMillis(500))
+                .multiplier(2.0)
+                .maxDelay(Duration.ofSeconds(5))
                 .build();
         return RetryInterceptorBuilder.stateless()
-                .retryOperations(retryTemplate)
+                .retryPolicy(politica)
                 .recoverer(new RejectAndDontRequeueRecoverer())
                 .build();
     }
