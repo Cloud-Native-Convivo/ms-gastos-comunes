@@ -13,7 +13,7 @@
 
   <groupId>com.convivo</groupId>
   <artifactId>ms-gastos-comunes</artifactId>
-  <version>0.4.0</version>
+  <version>0.4.1</version>
   <name>ms-gastos-comunes</name>
   <description>
     Microservicio de Gastos Comunes de Convivo (cobros, cuotas y pagos).
@@ -39,10 +39,21 @@
       (o corre `mvn versions:display-dependency-updates`).
     -->
     <ojdbc11.version>23.26.3.0.0</ojdbc11.version>
+    <!-- jackson-databind: GHSA-q4xh-88c3-wmh7 (HIGH), GHSA-gx83-3vf8-gh7j, GHSA-wjgm-6hv5-3cvf. Quitar al subir de Boot. -->
+    <jackson-bom.version>3.1.7</jackson-bom.version>
+    <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
+    <!-- amqp-client: CVE-2026-63337, CVE-2026-69219, CVE-2026-69220, CVE-2026-75516 -->
+    <rabbit-amqp-client.version>5.36.0</rabbit-amqp-client.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
+      <!-- httpclient 4.5.3 llega via el cliente Eureka de Netflix; GHSA-7r82-7xv7-xcpj (CVE-2020-13956) -->
+      <dependency>
+        <groupId>org.apache.httpcomponents</groupId>
+        <artifactId>httpclient</artifactId>
+        <version>4.5.14</version>
+      </dependency>
       <dependency>
         <groupId>org.bouncycastle</groupId>
         <artifactId>bcprov-jdk18on</artifactId>
