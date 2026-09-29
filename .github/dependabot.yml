@@ -12,6 +12,15 @@ updates:
     labels:
       - dependencies
       - java
+    groups:
+      spring:
+        patterns:
+          - "org.springframework*"
+      testing:
+        patterns:
+          - "org.junit*"
+          - "org.mockito*"
+          - "org.assertj*"
 
   # Imagen base de contenedor (Dockerfile)
   - package-ecosystem: docker
@@ -24,3 +33,15 @@ updates:
     labels:
       - dependencies
       - docker
+
+  # Actions de los workflows (fijadas por SHA)
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - ci
