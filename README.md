@@ -1,7 +1,7 @@
 # ms-gastos-comunes
 
 Microservicio de dominio **Gastos Comunes** de Convivo: cobros/cuotas y
-pagos por unidad. Java 21 + Spring Boot 3 + Oracle, detrás del BFF
+pagos por unidad. Java 25 + Spring Boot 4 + Oracle, detrás del BFF
 (`GASTOS_COMUNES_URL`, puerto **8083**) y consumidor asíncrono de eventos
 de reservas de espacios comunes vía RabbitMQ (patrón Outbox/Inbox).
 

@@ -44,8 +44,8 @@ Frontend (React/Angular) -> AWS API Gateway -> BFF (NestJS) -> ms-gastos-comunes
 
 ## 2. Stack técnico
 
-- Lenguaje: Java 21
-- Framework: Spring Boot 3.3.4 + Spring Cloud 2023.0.3
+- Lenguaje: Java 25 (LTS)
+- Framework: Spring Boot 4.1.1 + Spring Cloud 2025.1.3
 - Persistencia: Spring Data JPA + Oracle Database (`ojdbc11` 23.5.0.24.07 — fijada a mano en `pom.xml`, verificar última estable en Maven Central antes del primer build con red disponible), Flyway (`flyway-core` + `flyway-database-oracle`) para migraciones (`ddl-auto: validate` en `aws`, nunca autogenera esquema en producción); H2 en memoria (`MODE=Oracle`) en perfil `local`
 - Mensajería: Spring AMQP (RabbitMQ / Amazon MQ), patrón Outbox/Inbox, `spring-retry` para reintentos con backoff
 - Seguridad: Spring Security + OAuth2 Resource Server (JWT RS256 contra JWKS de Microsoft Entra ID)
