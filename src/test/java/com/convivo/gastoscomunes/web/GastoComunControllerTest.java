@@ -31,12 +31,23 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@ActiveProfiles("local")
 @Transactional
+@org.springframework.test.context.TestPropertySource(properties = {
+    "convivo.security.entra.jwks-uri=http://localhost",
+    "convivo.security.entra.issuer-uri-v1=http://localhost",
+    "convivo.security.entra.issuer-uri-v2=http://localhost",
+    "convivo.security.entra.audience=aud",
+    "convivo.security.entra.roles-claim=roles",
+    "spring.flyway.enabled=false"
+})
+@org.springframework.test.context.ActiveProfiles("test")
 class GastoComunControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private org.springframework.security.oauth2.jwt.JwtDecoder jwtDecoder;
 
     @Autowired
     private GastoComunRepository gastoComunRepository;
