@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
 
@@ -26,6 +27,7 @@ import org.hibernate.type.SqlTypes;
  */
 @Entity
 @Table(name = "gastos_comunes")
+@SQLRestriction("estado != 'ELIMINADO'")
 public class GastoComun {
 
     @Id

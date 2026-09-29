@@ -7,13 +7,13 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.3.4</version>
+    <version>4.1.1</version>
     <relativePath/>
   </parent>
 
   <groupId>com.convivo</groupId>
   <artifactId>ms-gastos-comunes</artifactId>
-  <version>0.3.4</version>
+  <version>0.4.0</version>
   <name>ms-gastos-comunes</name>
   <description>
     Microservicio de Gastos Comunes de Convivo (cobros, cuotas y pagos).
@@ -25,7 +25,11 @@
 
   <properties>
     <java.version>21</java.version>
-    <spring-cloud.version>2023.0.3</spring-cloud.version>
+    <spring-cloud.version>2025.1.2</spring-cloud.version>
+    <!-- Boot 4.1.1 trae Tomcat 11.0.24: CVE-2026-65182 se corrige en 11.0.25+. Quitar al subir de Boot. -->
+    <tomcat.version>11.0.26</tomcat.version>
+    <!-- bcprov llega transitivo via spring-security-rsa; CVE-2025-14813 y CVE-2026-8763 -->
+    <bouncycastle.version>1.86</bouncycastle.version>
     <maven.compiler.parameters>true</maven.compiler.parameters>
     <!--
       Este sandbox no tiene acceso a Maven Central para resolver/verificar
@@ -39,6 +43,11 @@
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>org.bouncycastle</groupId>
+        <artifactId>bcprov-jdk18on</artifactId>
+        <version>${bouncycastle.version}</version>
+      </dependency>
       <dependency>
         <groupId>org.springframework.cloud</groupId>
         <artifactId>spring-cloud-dependencies</artifactId>
@@ -72,8 +81,9 @@
       <scope>runtime</scope>
     </dependency>
     <dependency>
-      <groupId>org.flywaydb</groupId>
-      <artifactId>flyway-core</artifactId>
+      <groupId>org.springframework.boot</groupId>
+      <!-- Boot 4: la autoconfiguracion de Flyway vive en este starter; con solo flyway-core las migraciones no corren -->
+      <artifactId>spring-boot-starter-flyway</artifactId>
     </dependency>
     <dependency>
       <groupId>org.flywaydb</groupId>
@@ -125,10 +135,15 @@
     <dependency>
       <groupId>org.springdoc</groupId>
       <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-      <version>2.6.0</version>
+      <version>3.1.1</version>
     </dependency>
 
     <!-- Tests -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-webmvc-test</artifactId>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
@@ -152,6 +167,26 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.14</version>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

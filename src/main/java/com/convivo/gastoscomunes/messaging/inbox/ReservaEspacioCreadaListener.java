@@ -55,7 +55,14 @@ public class ReservaEspacioCreadaListener {
     @RabbitListener(queues = "#{@gastosReservaCreadaQueue.name}")
     public void recibir(Message message, Channel channel) throws IOException {
         long deliveryTag = message.getMessageProperties().getDeliveryTag();
-        ReservaEspacioCreadaEvent evento = deserializar(message);
+        ReservaEspacioCreadaEvent evento;
+        try {
+            evento = deserializar(message);
+        } catch (Exception ex) {
+            log.error("Fallo irrecuperable al deserializar evento entrante. Rechazando a DLQ: deliveryTag={}", deliveryTag, ex);
+            channel.basicReject(deliveryTag, false);
+            return;
+        }
 
         ResultadoProcesamiento resultado = inboxService.procesar(evento);
 

@@ -16,7 +16,7 @@ import java.math.BigDecimal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -31,12 +31,23 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-@ActiveProfiles("local")
 @Transactional
+@org.springframework.test.context.TestPropertySource(properties = {
+    "convivo.security.entra.jwks-uri=http://localhost",
+    "convivo.security.entra.issuer-uri-v1=http://localhost",
+    "convivo.security.entra.issuer-uri-v2=http://localhost",
+    "convivo.security.entra.audience=aud",
+    "convivo.security.entra.roles-claim=roles",
+    "spring.flyway.enabled=false"
+})
+@org.springframework.test.context.ActiveProfiles("test")
 class GastoComunControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private org.springframework.security.oauth2.jwt.JwtDecoder jwtDecoder;
 
     @Autowired
     private GastoComunRepository gastoComunRepository;

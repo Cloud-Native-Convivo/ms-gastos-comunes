@@ -25,16 +25,21 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
+import org.springframework.context.annotation.Profile;
+
 /**
  * Nivel 3 de la cadena de validación JWT (ver diagrama de secuencia):
  * ms-gastos-comunes valida el Access Token de Entra ID de forma <b>autónoma
  * e independiente</b> del BFF — firma RS256 contra JWKS, issuer y audience
  * — y luego aplica RBAC de dominio (roles Convivo) y ownership sobre las
  * rutas de gastos comunes.
+ *
+ * <p>Este bean NO actúa en el perfil {@code local} (ver {@code SecurityConfigLocal}).
  */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@Profile("!local")
 public class SecurityConfig {
 
     private static final String[] RUTAS_PUBLICAS = {

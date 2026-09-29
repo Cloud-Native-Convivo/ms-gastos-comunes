@@ -3,6 +3,12 @@ version: 2
 updates:
   # Dependencias Java (pom.xml)
   - package-ecosystem: maven
+
+    # Espera 7 dias antes de proponer una version nueva (mitiga paquetes comprometidos recien publicados)
+
+    cooldown:
+
+      default-days: 7
     directory: /
     target-branch: develop
     schedule:
@@ -12,9 +18,24 @@ updates:
     labels:
       - dependencies
       - java
+    groups:
+      spring:
+        patterns:
+          - "org.springframework*"
+      testing:
+        patterns:
+          - "org.junit*"
+          - "org.mockito*"
+          - "org.assertj*"
 
   # Imagen base de contenedor (Dockerfile)
   - package-ecosystem: docker
+
+    # Espera 7 dias antes de proponer una version nueva (mitiga paquetes comprometidos recien publicados)
+
+    cooldown:
+
+      default-days: 7
     directory: /
     target-branch: develop
     schedule:
@@ -24,3 +45,21 @@ updates:
     labels:
       - dependencies
       - docker
+
+  # Actions de los workflows (fijadas por SHA)
+  - package-ecosystem: github-actions
+
+    # Espera 7 dias antes de proponer una version nueva (mitiga paquetes comprometidos recien publicados)
+
+    cooldown:
+
+      default-days: 7
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - ci
