@@ -11,8 +11,6 @@ spring:
     import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
   jackson:
     default-property-inclusion: non_null
-    serialization:
-      write-dates-as-timestamps: false
 
 server:
   port: ${SERVER_PORT:8083}
