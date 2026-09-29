@@ -1,7 +1,7 @@
 # ============================================
 # Etapa 1: Descargar dependencias (cache)
 # ============================================
-FROM eclipse-temurin:21-jdk-alpine AS deps
+FROM eclipse-temurin:24-jdk-alpine AS deps
 WORKDIR /app
 COPY pom.xml ./
 COPY .mvn .mvn
@@ -18,8 +18,9 @@ RUN ./mvnw -B package -DskipTests
 # ============================================
 # Etapa 3: Imagen final liviana
 # ============================================
-FROM eclipse-temurin:21-jre-alpine
-RUN apk add --no-cache curl
+FROM eclipse-temurin:24-jre-alpine
+# apk upgrade: la imagen base arrastra gnutls/libcrypto3 con CVEs CRITICAL ya parchados en Alpine
+RUN apk upgrade --no-cache && apk add --no-cache curl
 
 WORKDIR /app
 
