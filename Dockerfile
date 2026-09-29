@@ -19,7 +19,8 @@ RUN ./mvnw -B package -DskipTests
 # Etapa 3: Imagen final liviana
 # ============================================
 FROM eclipse-temurin:24-jre-alpine
-RUN apk add --no-cache curl
+# apk upgrade: la imagen base arrastra gnutls/libcrypto3 con CVEs CRITICAL ya parchados en Alpine
+RUN apk upgrade --no-cache && apk add --no-cache curl
 
 WORKDIR /app
 
