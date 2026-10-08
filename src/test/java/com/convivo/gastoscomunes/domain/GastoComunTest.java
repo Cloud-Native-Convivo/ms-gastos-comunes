@@ -3,6 +3,7 @@ package com.convivo.gastoscomunes.domain;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.convivo.gastoscomunes.exception.ReglaNegocioException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
@@ -61,7 +62,7 @@ class GastoComunTest {
                 "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
         gasto.eliminar();
 
-        assertThrows(IllegalStateException.class,
+        assertThrows(ReglaNegocioException.class,
                 () -> gasto.actualizar("Otro", new BigDecimal("5000"), null));
     }
 
@@ -81,6 +82,37 @@ class GastoComunTest {
                 "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
         gasto.aplicarPago(new BigDecimal("10000"));
 
-        assertThrows(IllegalStateException.class, gasto::eliminar);
+        assertThrows(ReglaNegocioException.class, gasto::eliminar);
+    }
+
+    // Valores límite sobre saldoPendiente = 10000: igual (ok), +0.01 (rechaza), gasto ya PAGADO (rechaza).
+    @Test
+    void pagoExactoAlSaldoDejaGastoPagado() {
+        GastoComun gasto = GastoComun.crear(
+                "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
+
+        gasto.aplicarPago(new BigDecimal("10000.00"));
+
+        assertEquals(EstadoGasto.PAGADO, gasto.getEstado());
+        assertEquals(0, gasto.getSaldoPendiente().signum());
+    }
+
+    @Test
+    void pagoQueExcedeElSaldoSeRechazaSinTocarElSaldo() {
+        GastoComun gasto = GastoComun.crear(
+                "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
+
+        assertThrows(ReglaNegocioException.class, () -> gasto.aplicarPago(new BigDecimal("10000.01")));
+        assertEquals(new BigDecimal("10000"), gasto.getSaldoPendiente());
+        assertEquals(EstadoGasto.PENDIENTE, gasto.getEstado());
+    }
+
+    @Test
+    void pagoSobreGastoYaPagadoSeRechaza() {
+        GastoComun gasto = GastoComun.crear(
+                "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
+        gasto.aplicarPago(new BigDecimal("10000"));
+
+        assertThrows(ReglaNegocioException.class, () -> gasto.aplicarPago(new BigDecimal("1")));
     }
 }
