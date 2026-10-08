@@ -9,6 +9,13 @@ import java.time.Instant;
  */
 public record GastoFallidoPayload(String reservaId, String motivo, Instant timestamp) {
 
+    /**
+     * Crea el payload de compensación con la hora actual.
+     *
+     * @param reservaId reserva que no pudo convertirse en gasto
+     * @param motivo causa del rechazo (ej. {@code datos_inconsistentes})
+     * @return payload listo para encolar en el Outbox
+     */
     public static GastoFallidoPayload de(String reservaId, String motivo) {
         return new GastoFallidoPayload(reservaId, motivo, Instant.now());
     }
