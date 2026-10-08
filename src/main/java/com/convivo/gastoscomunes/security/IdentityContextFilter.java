@@ -37,6 +37,7 @@ public class IdentityContextFilter extends OncePerRequestFilter {
     private static final String HEADER_CORRELATION_ID = "X-Correlation-Id";
     private static final String MDC_CORRELATION_ID = "correlationId";
     private static final String MDC_USUARIO_SUB = "usuarioSub";
+    private static final String PREFIJO_ROL = "ROLE_";
 
     private final UsuarioContexto usuarioContexto;
 
@@ -75,32 +76,13 @@ public class IdentityContextFilter extends OncePerRequestFilter {
         Set<String> roles = new LinkedHashSet<>();
         for (GrantedAuthority autoridad : autoridades) {
             String nombre = autoridad.getAuthority();
-            if (nombre.startsWith("ROLE_")) {
-                roles.add(nombre.substring("ROLE_".length()).toLowerCase());
+            if (nombre.startsWith(PREFIJO_ROL)) {
+                roles.add(nombre.substring(PREFIJO_ROL.length()).toLowerCase());
             }
         }
-        if (roles.isEmpty()) {
-            String headerRoles = request.getHeader("X-Usuario-Roles");
-            if (headerRoles != null && !headerRoles.isBlank()) {
-                for (String parte : headerRoles.split(",")) {
-                    String limpio = parte.trim().toLowerCase();
-                    if (!limpio.isBlank()) {
-                        roles.add(limpio.equals("admin") ? "administrador" : limpio);
-                    }
-                }
-            }
-        }
+        // Roles solo desde el JWT validado: X-Usuario-Roles no está firmado y
+        // nunca se usa para autorizar (un token sin roles queda sin privilegios).
         usuarioContexto.setRoles(roles);
-
-        if (!roles.isEmpty() && !autoridades.iterator().hasNext()) {
-            java.util.List<GrantedAuthority> nuevasAutoridades = roles.stream()
-                    .map(r -> (GrantedAuthority) new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + r.toUpperCase()))
-                    .toList();
-            org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken nuevoAuth =
-                    new org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken(
-                            jwt, nuevasAutoridades, usuarioSub);
-            SecurityContextHolder.getContext().setAuthentication(nuevoAuth);
-        }
 
         String headerSub = request.getHeader(HEADER_USUARIO_SUB);
         if (headerSub != null && usuarioSub != null && !headerSub.equals(usuarioSub)) {

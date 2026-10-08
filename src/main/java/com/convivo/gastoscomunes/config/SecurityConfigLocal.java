@@ -1,7 +1,6 @@
 package com.convivo.gastoscomunes.config;
 
 import com.convivo.gastoscomunes.security.UsuarioContexto;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -48,11 +47,9 @@ public class SecurityConfigLocal {
     private static final Logger log = LoggerFactory.getLogger(SecurityConfigLocal.class);
 
     private final UsuarioContexto usuarioContexto;
-    private final ObjectMapper objectMapper;
 
-    public SecurityConfigLocal(UsuarioContexto usuarioContexto, ObjectMapper objectMapper) {
+    public SecurityConfigLocal(UsuarioContexto usuarioContexto) {
         this.usuarioContexto = usuarioContexto;
-        this.objectMapper = objectMapper;
         log.warn("*** SecurityConfigLocal ACTIVO: validación JWT DESHABILITADA (solo para desarrollo local) ***");
     }
 
