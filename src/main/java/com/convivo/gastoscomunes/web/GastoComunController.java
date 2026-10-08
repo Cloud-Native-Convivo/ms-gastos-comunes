@@ -44,6 +44,12 @@ public class GastoComunController {
         this.usuarioContexto = usuarioContexto;
     }
 
+    /**
+     * Emite un cobro manual. Solo administrador/comité.
+     *
+     * @param request datos del cobro, validados contra los largos de la columna Oracle
+     * @return el gasto creado (HTTP 201)
+     */
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','COMITE')")
     @ResponseStatus(HttpStatus.CREATED)
@@ -51,6 +57,12 @@ public class GastoComunController {
         return GastoComunResponse.desde(service.crear(request));
     }
 
+    /**
+     * Lista los gastos visibles para el usuario (todos o solo su unidad).
+     *
+     * @param pageable paginación; por defecto 20 por página, más recientes primero
+     * @return página de gastos
+     */
     @GetMapping
     public ResponseEntity<Page<GastoComunResponse>> listar(
             @PageableDefault(size = 20, sort = "fechaCreacion", direction = Sort.Direction.DESC) Pageable pageable) {
@@ -58,6 +70,13 @@ public class GastoComunController {
         return ResponseEntity.ok(pagina);
     }
 
+    /**
+     * Lista los gastos de una unidad; 403 si no es la propia y no es gestor.
+     *
+     * @param unidadId unidad a consultar
+     * @param pageable paginación; por defecto 20 por página, más recientes primero
+     * @return página de gastos de la unidad
+     */
     @GetMapping("/unidad/{unidadId}")
     public ResponseEntity<Page<GastoComunResponse>> listarPorUnidad(
             @PathVariable String unidadId,
@@ -67,17 +86,36 @@ public class GastoComunController {
         return ResponseEntity.ok(pagina);
     }
 
+    /**
+     * Obtiene un gasto; 404 si no existe o está eliminado, 403 si es de otra unidad.
+     *
+     * @param id identificador del gasto
+     * @return el gasto
+     */
     @GetMapping("/{id}")
     public GastoComunResponse obtener(@PathVariable Long id) {
         return GastoComunResponse.desde(service.obtener(id, usuarioContexto));
     }
 
+    /**
+     * Edita concepto, monto y vencimiento de un gasto. Solo administrador/comité.
+     * La unidad del request se ignora: un gasto no cambia de unidad.
+     *
+     * @param id identificador del gasto
+     * @param request nuevos datos del gasto
+     * @return el gasto actualizado
+     */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','COMITE')")
     public GastoComunResponse actualizar(@PathVariable Long id, @Valid @RequestBody GastoComunRequest request) {
         return GastoComunResponse.desde(service.actualizar(id, request));
     }
 
+    /**
+     * Borrado lógico de un gasto (estado {@code ELIMINADO}). Solo administrador/comité.
+     *
+     * @param id identificador del gasto
+     */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','COMITE')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -85,13 +123,29 @@ public class GastoComunController {
         service.eliminar(id);
     }
 
+    /**
+     * Registra un pago sobre un gasto. Solo administrador/comité: un pago
+     * autodeclarado por el residente saldaría su propia deuda sin verificación.
+     *
+     * @param id gasto al que se abona
+     * @param request monto, método y comprobante; 409 si excede el saldo
+     * @return el pago registrado (HTTP 201)
+     */
     @PostMapping("/{id}/pagos")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','COMITE')")
     @ResponseStatus(HttpStatus.CREATED)
     public PagoResponse registrarPago(@PathVariable Long id, @Valid @RequestBody PagoRequest request) {
         Pago pago = service.registrarPago(id, request, usuarioContexto);
         return PagoResponse.desde(pago);
     }
 
+    /**
+     * Lista el historial de pagos de un gasto; 403 si es de otra unidad.
+     *
+     * @param id identificador del gasto
+     * @param pageable paginación; por defecto 20 por página, pagos más recientes primero
+     * @return página de pagos
+     */
     @GetMapping("/{id}/pagos")
     public ResponseEntity<Page<PagoResponse>> listarPagos(
             @PathVariable Long id,

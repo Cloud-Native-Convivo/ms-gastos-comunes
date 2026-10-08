@@ -29,7 +29,7 @@ Cuando dos reglas de este archivo entran en conflicto, se resuelven en este orde
 
 `ms-gastos-comunes` es el microservicio del dominio **Gastos Comunes** de Convivo (plataforma de gestión de condominios en Chile): cobros, cuotas y pagos por unidad. Se ubica detrás del BFF (NestJS) y consume eventos de `ms-espacios-comunes` vía RabbitMQ (patrón Outbox/Inbox) para crear gastos automáticamente al confirmarse una reserva.
 
-Roles: `administrador` y `comite` gestionan cobros de todo el condominio; `propietario` y `residente` solo consultan/pagan los gastos de su propia unidad (`unidad_id`); `conserje` no tiene acceso a este dominio. El BFF valida el JWT (Nivel 2) y reenvía `Authorization` + headers de identidad (`X-Usuario-Sub`, `X-Usuario-Roles`), pero este servicio **no confía en esos headers para autorizar**: vuelve a validar el JWT de forma autónoma (RS256 contra JWKS de Entra ID) — Nivel 3, defensa en profundidad. Ver `SecurityConfig` y `JwtRolesConverter`. `IdentityContextFilter` compara el header `X-Usuario-Sub` del BFF contra el claim `oid` del token ya validado; si difieren, se registra advertencia de seguridad (solo log, nunca se usa el header para autorizar).
+Roles: `administrador` y `comite` gestionan cobros de todo el condominio; `propietario` y `residente` solo consultan los gastos y pagos de su propia unidad (`unidad_id`) — registrar pagos es exclusivo de `administrador`/`comite`, porque un pago autodeclarado por el deudor saldaría su propia deuda sin verificación externa; `conserje` no tiene acceso a este dominio. El BFF valida el JWT (Nivel 2) y reenvía `Authorization` + headers de identidad (`X-Usuario-Sub`, `X-Usuario-Roles`), pero este servicio **no confía en esos headers para autorizar**: vuelve a validar el JWT de forma autónoma (RS256 contra JWKS de Entra ID) — Nivel 3, defensa en profundidad. Ver `SecurityConfig` y `JwtRolesConverter`. `IdentityContextFilter` compara el header `X-Usuario-Sub` del BFF contra el claim `oid` del token ya validado; si difieren, se registra advertencia de seguridad (solo log, nunca se usa el header para autorizar).
 
 Arquitectura de encaje (Convivo v2.7):
 
@@ -72,7 +72,8 @@ src/main/java/com/convivo/gastoscomunes/
     GastoComunRequest/Response.java, PagoRequest/Response.java
   exception/
     GlobalExceptionHandler.java, ErrorResponse.java,
-    RecursoNoEncontradoException.java, OperacionNoPermitidaException.java
+    RecursoNoEncontradoException.java, OperacionNoPermitidaException.java,
+    ReglaNegocioException.java   # regla de dominio violada -> 409
   messaging/
     outbox/  OutboxEvento, OutboxPublisherService, OutboxRelayScheduler
     inbox/   InboxEvento, ReservaEspacioCreadaListener, ReservaCreadaInboxService
@@ -88,7 +89,7 @@ src/main/java/com/convivo/gastoscomunes/
     GastoComunController.java   # API REST bajo /api/v1/gastos-comunes
 src/main/resources/
   application.yml, application-local.yml, application-aws.yml
-  db/migration/                 # Flyway (V1__init.sql)
+  db/migration/                 # Flyway (V1__init.sql, V2__largos_en_caracteres.sql)
 src/test/java/com/convivo/gastoscomunes/  # espejo del código fuente
 ```
 
@@ -126,9 +127,38 @@ Patrones obligatorios:
 - Records/DTOs inmutables para request/response.
 - `Optional<T>` en vez de `null` en retornos de repositorio cuando corresponda; nunca `Optional` como parámetro.
 - Queries vía Spring Data JPA (derivadas o `@Query` parametrizada) — nunca concatenar input de usuario.
-- Excepciones de negocio propias (`RecursoNoEncontradoException`, `OperacionNoPermitidaException`) capturadas por `GlobalExceptionHandler`, nunca stack trace crudo al cliente.
+- Excepciones de negocio propias (`RecursoNoEncontradoException` 404, `OperacionNoPermitidaException` 403, `ReglaNegocioException` 409) capturadas por `GlobalExceptionHandler`, nunca stack trace crudo al cliente. Nunca `IllegalStateException` para reglas de dominio: queda para fallas técnicas, que responden 500 sin exponer el mensaje.
 - Javadoc en español en clases públicas de `service/`, `web/` y `messaging/` (qué hace, no cómo).
 - Borrado lógico de gastos vía estado `ELIMINADO` (`EstadoGasto`), nunca `DELETE` físico de la fila.
+
+### 5.1 Tipos de datos pensados para Oracle
+
+La base real es Oracle (`gastos_db`, perfil `aws`); H2 con `MODE=Oracle` en `local` solo la imita y deja pasar cosas que Oracle rechaza. Todo campo, DTO o método que persista o consulte datos se diseña partiendo del tipo Oracle de la columna, no del tipo Java "natural". Fuente de verdad del esquema: `src/main/resources/db/migration/` (Flyway) — con `ddl-auto: validate` en `aws`, una entidad que no calce con la migración hace fallar el arranque.
+
+Mapeo vigente (de `V1__init.sql`), a respetar en campos nuevos:
+
+| Tipo Oracle            | Tipo Java                  | Uso actual / regla                                                                                                    |
+| ---------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `NUMBER(19)` IDENTITY  | `Long`                     | PK (`GenerationType.IDENTITY`) y FK (`gasto_comun_id`). Nunca `Integer` para IDs                                      |
+| `NUMBER(12,2)`         | `BigDecimal`               | `monto`, `saldo_pendiente`. Nunca `double`/`float` para dinero; `@Column(precision = 12, scale = 2)` igual a la migración; validar en DTO con `@Digits(integer = 10, fraction = 2)` para no exceder la precisión |
+| `NUMBER(5)`            | `int`                      | `intentos` del Outbox. Rango acotado: no usar para contadores que puedan crecer sin límite                            |
+| `VARCHAR2(n)`          | `String`                   | `@Column(length = n)` igual a la migración y `@Size(max = n)` en el DTO de entrada, para que el error sea 400 y no un `ORA-12899` en runtime |
+| `VARCHAR2(20)` + enum  | enum + `@Enumerated(STRING)` | `estado`, `origen`, `metodo`. Nunca `ORDINAL` (reordenar el enum corrompe datos). Valor nuevo del enum ≤ 20 chars o migración que amplíe la columna |
+| `DATE`                 | `LocalDate`                | `fecha_vencimiento`: fecha de calendario sin hora. Comparar contra `LocalDate.now(ZoneId.of("America/Santiago"))`, nunca contra la zona del servidor |
+| `TIMESTAMP`            | `Instant` + `@JdbcTypeCode(SqlTypes.TIMESTAMP)` | instantes de auditoría (`fecha_creacion`, `fecha_pago`, etc.)                                  |
+| `CLOB` + `@Lob`        | `String`                   | `payload` del Outbox (JSON). No filtrar ni ordenar por columnas `CLOB` en queries                                     |
+
+Particularidades de Oracle que cambian cómo se escribe el código:
+
+- **String vacío = `NULL`**: Oracle guarda `''` como `NULL`. Un `""` en una columna `NOT NULL` falla con `ORA-01400`, y `campo = ''` en una query nunca matchea. Validar con `@NotBlank` en la entrada y no usar `""` como valor "sin dato": usar `null` explícito.
+- **`VARCHAR2(n)` cuenta bytes por defecto** (`NLS_LENGTH_SEMANTICS=BYTE`): con charset AL32UTF8, `á`, `ñ`, `°` ocupan 2 bytes, y `@Size`/`String.length()` cuentan caracteres. `V2__largos_en_caracteres.sql` pasó a `VARCHAR2(n CHAR)` las columnas de texto que llega desde afuera (`unidad_id`, `concepto`, `referencia_externa`, `usuario_sub`, `comprobante`, `event_id`, `tipo` de inbox). Toda columna nueva de texto externo se declara `VARCHAR2(n CHAR)` desde su migración; los enums y valores internos ASCII pueden quedar en BYTE.
+- **Sin `BOOLEAN` previo a Oracle 23ai**: si se agrega un flag, decidir explícitamente según la versión desplegada — `BOOLEAN` nativo (23ai, la imagen Oracle Database Free actual) o `NUMBER(1)` con `CHECK (col IN (0,1))` si debe correr en versiones anteriores. Preferir un enum de estado cuando el flag pueda tener más de dos valores a futuro.
+- **Identificadores**: nombres de tabla/columna/índice/constraint en `snake_case`, minúsculas en la migración (Oracle los guarda en mayúsculas), sin comillas dobles (vuelven el nombre case-sensitive) y sin palabras reservadas de Oracle (`DATE`, `LEVEL`, `NUMBER`, `COMMENT`, `SIZE`, `USER`, `UID`, etc.).
+- **Paginación y límites**: usar `Pageable`/`Limit` de Spring Data (Hibernate genera `FETCH FIRST n ROWS ONLY`), nunca `LIMIT` ni `ROWNUM` escrito a mano en `@Query` nativa.
+- **`IN` con listas**: Oracle rechaza más de 1000 elementos en una lista `IN (...)` (`ORA-01795`) — partir la consulta en lotes si la lista viene de input o de otra consulta.
+- **Zona horaria de `TIMESTAMP`**: la columna no guarda zona; por eso `application.yml` fija `spring.jpa.properties.hibernate.jdbc.time_zone: UTC` — los `Instant` se guardan y leen siempre en UTC, independiente de la zona de la JVM. No quitarlo. Queries nativas o reportes que lean estas columnas deben interpretarlas como UTC.
+
+Cambio de tipo o largo de una columna = migración Flyway nueva (`V<n>__descripcion.sql`), nunca editar una `V*` ya aplicada (Flyway falla por checksum). Entidad, DTO (`@Size`/`@Digits`) y migración se cambian en el mismo commit.
 
 ## 6. Disciplina anti-sobreingeniería (Ponytail)
 

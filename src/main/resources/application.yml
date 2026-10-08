@@ -11,6 +11,13 @@ spring:
     import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
   jackson:
     default-property-inclusion: non_null
+  # Las columnas TIMESTAMP de Oracle no guardan zona: sin esto, los Instant
+  # se convierten con la zona de la JVM y difieren entre instancias.
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
 
 server:
   port: ${SERVER_PORT:8083}

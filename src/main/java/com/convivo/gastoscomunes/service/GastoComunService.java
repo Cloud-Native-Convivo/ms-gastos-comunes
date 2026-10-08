@@ -22,7 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Reglas de negocio y de ownership (Nivel 3 — anti-BOLA/IDOR) de Gastos
  * Comunes: administrador/comité gestionan todo el condominio;
- * propietario/residente solo ven y pagan los gastos de su propia unidad.
+ * propietario/residente solo ven los gastos y pagos de su propia unidad.
+ * Registrar pagos lo restringe a administrador/comité el controller.
  */
 @Service
 @Transactional
@@ -44,6 +45,12 @@ public class GastoComunService {
         this.gastoReservaFactory = gastoReservaFactory;
     }
 
+    /**
+     * Emite un cobro manual (origen {@code MANUAL}) para la unidad indicada.
+     *
+     * @param request unidad, concepto, monto y vencimiento del cobro
+     * @return el gasto creado, en estado {@code PENDIENTE} y con saldo igual al monto
+     */
     public GastoComun crear(GastoComunRequest request) {
         GastoComun gasto = gastoManualFactory.crearGasto(
                 request.unidadId(), request.concepto(), request.monto(), null,
@@ -65,6 +72,15 @@ public class GastoComunService {
         gastoComunRepository.save(gasto);
     }
 
+    /**
+     * Lista los gastos visibles para el usuario: todos si administra el
+     * condominio, solo los de su unidad en otro caso.
+     *
+     * @param usuario identidad y roles del request actual
+     * @param pageable paginación y orden
+     * @return página de gastos no eliminados
+     * @throws OperacionNoPermitidaException si no es gestor y su token no trae {@code unidad_id}
+     */
     @Transactional(readOnly = true)
     public Page<GastoComun> listar(UsuarioContexto usuario, Pageable pageable) {
         if (usuario.esGestorCondominio()) {
@@ -73,6 +89,15 @@ public class GastoComunService {
         return listarPorUnidad(requerirUnidadPropia(usuario), usuario, pageable);
     }
 
+    /**
+     * Lista los gastos de una unidad, validando ownership.
+     *
+     * @param unidadId unidad a consultar
+     * @param usuario identidad y roles del request actual
+     * @param pageable paginación y orden
+     * @return página de gastos no eliminados de la unidad
+     * @throws OperacionNoPermitidaException si el usuario no administra el condominio ni es dueño de la unidad
+     */
     @Transactional(readOnly = true)
     public Page<GastoComun> listarPorUnidad(String unidadId, UsuarioContexto usuario, Pageable pageable) {
         if (!usuario.puedeOperarSobreUnidad(unidadId)) {
@@ -81,6 +106,15 @@ public class GastoComunService {
         return gastoComunRepository.findByUnidadId(unidadId, pageable);
     }
 
+    /**
+     * Obtiene un gasto por id, validando ownership sobre su unidad.
+     *
+     * @param id identificador del gasto
+     * @param usuario identidad y roles del request actual
+     * @return el gasto encontrado
+     * @throws RecursoNoEncontradoException si no existe o está eliminado
+     * @throws OperacionNoPermitidaException si el usuario no puede operar sobre la unidad del gasto
+     */
     @Transactional(readOnly = true)
     public GastoComun obtener(Long id, UsuarioContexto usuario) {
         GastoComun gasto = buscarOLanzar(id);
@@ -90,6 +124,18 @@ public class GastoComunService {
         return gasto;
     }
 
+    /**
+     * Registra un abono sobre un gasto y descuenta su saldo pendiente; si el
+     * saldo llega a cero, el gasto pasa a {@code PAGADO}.
+     *
+     * @param gastoId gasto al que se abona
+     * @param request monto, método y comprobante del pago
+     * @param usuario identidad del request actual, queda como autor del pago
+     * @return el pago persistido
+     * @throws RecursoNoEncontradoException si el gasto no existe o está eliminado
+     * @throws OperacionNoPermitidaException si el usuario no puede operar sobre la unidad del gasto
+     * @see GastoComun#aplicarPago(BigDecimal)
+     */
     public Pago registrarPago(Long gastoId, PagoRequest request, UsuarioContexto usuario) {
         GastoComun gasto = buscarOLanzar(gastoId);
         if (!usuario.puedeOperarSobreUnidad(gasto.getUnidadId())) {
@@ -103,6 +149,16 @@ public class GastoComunService {
         return pagoRepository.save(pago);
     }
 
+    /**
+     * Lista el historial de pagos de un gasto, validando ownership.
+     *
+     * @param gastoId gasto a consultar
+     * @param usuario identidad y roles del request actual
+     * @param pageable paginación y orden
+     * @return página de pagos del gasto
+     * @throws RecursoNoEncontradoException si el gasto no existe o está eliminado
+     * @throws OperacionNoPermitidaException si el usuario no puede operar sobre la unidad del gasto
+     */
     @Transactional(readOnly = true)
     public Page<Pago> listarPagos(Long gastoId, UsuarioContexto usuario, Pageable pageable) {
         GastoComun gasto = buscarOLanzar(gastoId);

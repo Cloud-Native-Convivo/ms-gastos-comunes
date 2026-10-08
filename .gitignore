@@ -30,3 +30,7 @@ application-local-secrets.yml
 
 # Indices de analisis de codigo
 .codegraph/
+
+# Config local de agentes de código
+.agents/
+.claude/

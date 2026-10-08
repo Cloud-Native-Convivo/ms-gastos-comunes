@@ -8,8 +8,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.convivo.gastoscomunes.domain.GastoComun;
+import com.convivo.gastoscomunes.domain.MetodoPago;
 import com.convivo.gastoscomunes.domain.OrigenGasto;
 import com.convivo.gastoscomunes.dto.GastoComunRequest;
+import com.convivo.gastoscomunes.dto.PagoRequest;
 import com.convivo.gastoscomunes.repository.GastoComunRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
@@ -120,5 +122,64 @@ class GastoComunControllerTest {
                         .content(body))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.estado", is("PENDIENTE")));
+    }
+
+    @Test
+    void conceptoMasLargoQueLaColumnaOracleDevuelve400() throws Exception {
+        String body = objectMapper.writeValueAsString(
+                new GastoComunRequest("unidad-A302", "x".repeat(201), new BigDecimal("10000"), null));
+
+        mockMvc.perform(post("/api/v1/gastos-comunes")
+                        .with(jwt().jwt(builder -> builder.claim("oid", "admin-1"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code", is("VALIDATION_ERROR")));
+    }
+
+    @Test
+    void pagoQueExcedeElSaldoDevuelve409() throws Exception {
+        String body = objectMapper.writeValueAsString(
+                new PagoRequest(new BigDecimal("45000.01"), MetodoPago.values()[0], null));
+
+        mockMvc.perform(post("/api/v1/gastos-comunes/" + gastoUnidadA + "/pagos")
+                        .with(jwt().jwt(builder -> builder.claim("oid", "admin-1"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code", is("CONFLICT")));
+    }
+
+    @Test
+    void headerDeRolesNoOtorgaPrivilegiosAUnTokenSinRoles() throws Exception {
+        String body = objectMapper.writeValueAsString(
+                new GastoComunRequest("unidad-A302", "Multa", new BigDecimal("10000"), null));
+
+        mockMvc.perform(post("/api/v1/gastos-comunes")
+                        .with(jwt().jwt(builder -> builder.claim("oid", "sin-rol-1")).authorities())
+                        .header("X-Usuario-Roles", "admin")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/v1/gastos-comunes/unidad/unidad-A302")
+                        .with(jwt().jwt(builder -> builder.claim("oid", "sin-rol-1")).authorities())
+                        .header("X-Usuario-Roles", "admin"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void propietarioNoPuedeRegistrarPagosSobreSuPropiaDeuda() throws Exception {
+        String body = objectMapper.writeValueAsString(
+                new PagoRequest(new BigDecimal("45000"), MetodoPago.values()[0], null));
+
+        mockMvc.perform(post("/api/v1/gastos-comunes/" + gastoUnidadA + "/pagos")
+                        .with(jwt().jwt(builder -> builder.claim("oid", "prop-1").claim("unidad_id", "unidad-A302"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_PROPIETARIO")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isForbidden());
     }
 }

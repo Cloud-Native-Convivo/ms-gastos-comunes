@@ -35,6 +35,10 @@ public class OutboxRelayScheduler {
         this.props = props;
     }
 
+    /**
+     * Publica el siguiente lote de eventos {@code PENDIENTE}, del más antiguo
+     * al más nuevo, hasta {@code convivo.mensajeria.outbox-lote-maximo}.
+     */
     @Scheduled(fixedDelayString = "${convivo.mensajeria.outbox-intervalo-ms:5000}")
     public void publicarPendientes() {
         Pageable lote = PageRequest.of(0, props.outboxLoteMaximo());

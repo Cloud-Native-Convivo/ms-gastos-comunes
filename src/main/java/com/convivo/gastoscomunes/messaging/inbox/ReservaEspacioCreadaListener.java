@@ -52,6 +52,15 @@ public class ReservaEspacioCreadaListener {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * Consume un mensaje de la cola de reservas creadas con ACK manual. Un
+     * cuerpo ilegible se rechaza sin requeue (va a la DLQ); duplicados,
+     * inválidos (tras encolar la compensación) y procesados se confirman.
+     *
+     * @param message mensaje AMQP crudo
+     * @param channel canal para el ACK/rechazo manual
+     * @throws IOException si falla el ACK o el rechazo sobre el canal
+     */
     @RabbitListener(queues = "#{@gastosReservaCreadaQueue.name}")
     public void recibir(Message message, Channel channel) throws IOException {
         long deliveryTag = message.getMessageProperties().getDeliveryTag();

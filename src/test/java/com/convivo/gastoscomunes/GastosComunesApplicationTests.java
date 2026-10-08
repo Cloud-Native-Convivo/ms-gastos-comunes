@@ -10,5 +10,7 @@ import org.springframework.test.context.ActiveProfiles;
 class GastosComunesApplicationTests {
 
     @Test
-    void contextLoads() {}
+    void contextLoads() {
+        // Vacío a propósito: el test falla si el contexto de Spring no arranca.
+    }
 }
