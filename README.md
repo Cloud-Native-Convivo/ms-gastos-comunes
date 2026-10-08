@@ -164,7 +164,10 @@ paralelo a este trabajo:
   tipo `Rol` y el filtro de roles solo incluían
   `administrador | conserje | comite`, lo que descartaba silenciosamente
   a `propietario` y `residente` — los roles que precisamente necesitan
-  consultar/pagar sus propios gastos comunes. Se agregaron ambos roles.
+  consultar sus propios gastos comunes. Se agregaron ambos roles.
+  Registrar pagos (`POST /{id}/pagos`) queda solo para
+  `administrador`/`comite`: un pago autodeclarado por el residente
+  saldaría su propia deuda sin verificación externa.
 
 Esos archivos del BFF se entregan junto con este microservicio.
 
