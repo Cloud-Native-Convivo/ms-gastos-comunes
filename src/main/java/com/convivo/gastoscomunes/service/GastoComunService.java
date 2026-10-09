@@ -14,6 +14,8 @@ import com.convivo.gastoscomunes.repository.GastoComunRepository;
 import com.convivo.gastoscomunes.repository.PagoRepository;
 import com.convivo.gastoscomunes.security.UsuarioContexto;
 import java.math.BigDecimal;
+import com.convivo.gastoscomunes.messaging.outbox.OutboxEvento;
+import com.convivo.gastoscomunes.messaging.outbox.OutboxEventoRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -33,16 +35,19 @@ public class GastoComunService {
     private final PagoRepository pagoRepository;
     private final GastoManualFactory gastoManualFactory;
     private final GastoReservaFactory gastoReservaFactory;
+    private final OutboxEventoRepository outboxEventoRepository;
 
     public GastoComunService(
             GastoComunRepository gastoComunRepository,
             PagoRepository pagoRepository,
             GastoManualFactory gastoManualFactory,
-            GastoReservaFactory gastoReservaFactory) {
+            GastoReservaFactory gastoReservaFactory,
+            OutboxEventoRepository outboxEventoRepository) {
         this.gastoComunRepository = gastoComunRepository;
         this.pagoRepository = pagoRepository;
         this.gastoManualFactory = gastoManualFactory;
         this.gastoReservaFactory = gastoReservaFactory;
+        this.outboxEventoRepository = outboxEventoRepository;
     }
 
     /**
@@ -146,7 +151,15 @@ public class GastoComunService {
 
         Pago pago = Pago.registrar(
                 gasto, request.monto(), request.metodo(), usuario.getUsuarioSub(), request.comprobante());
-        return pagoRepository.save(pago);
+        pago = pagoRepository.save(pago);
+
+        if (gasto.getOrigen() == OrigenGasto.RESERVA_ESPACIO && gasto.getEstado() == EstadoGasto.PAGADO) {
+            String payloadJson = String.format("{\"reserva_id\":%s}", gasto.getReferenciaExterna());
+            OutboxEvento evento = OutboxEvento.crear("espacios_events", "reserva_pagada", "reserva_pagada", payloadJson);
+            outboxEventoRepository.save(evento);
+        }
+
+        return pago;
     }
 
     /**
@@ -196,3 +209,8 @@ public class GastoComunService {
         return usuario.getUnidadId();
     }
 }
+
+
+
+
+

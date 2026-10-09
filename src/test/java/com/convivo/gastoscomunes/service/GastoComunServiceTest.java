@@ -20,6 +20,7 @@ import com.convivo.gastoscomunes.factory.GastoManualFactory;
 import com.convivo.gastoscomunes.factory.GastoReservaFactory;
 import com.convivo.gastoscomunes.repository.GastoComunRepository;
 import com.convivo.gastoscomunes.repository.PagoRepository;
+import com.convivo.gastoscomunes.messaging.outbox.OutboxEventoRepository;
 import com.convivo.gastoscomunes.security.UsuarioContexto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -45,12 +46,15 @@ class GastoComunServiceTest {
     @Mock
     private PagoRepository pagoRepo;
 
+    @Mock
+    private OutboxEventoRepository outboxEventoRepository;
+
     private GastoComunService servicio;
     private final Pageable pagina = Pageable.ofSize(10);
 
     @BeforeEach
     void crearServicio() {
-        servicio = new GastoComunService(gastoRepo, pagoRepo, new GastoManualFactory(), new GastoReservaFactory());
+        servicio = new GastoComunService(gastoRepo, pagoRepo, new GastoManualFactory(), new GastoReservaFactory(), outboxEventoRepository);
     }
 
     private static UsuarioContexto usuario(String unidadId, String... roles) {
@@ -177,3 +181,6 @@ class GastoComunServiceTest {
         assertThat(nuevo.getReferenciaExterna()).isEqualTo("res-2");
     }
 }
+
+
+
