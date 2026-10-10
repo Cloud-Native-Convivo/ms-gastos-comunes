@@ -2,8 +2,10 @@ package com.convivo.gastoscomunes.web;
 
 import static org.hamcrest.Matchers.is;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -181,5 +183,59 @@ class GastoComunControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void administradorPuedeObtenerGastoPorId() throws Exception {
+        mockMvc.perform(get("/api/v1/gastos-comunes/" + gastoUnidadA)
+                        .with(jwt().jwt(builder -> builder.claim("oid", "admin-1"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is(gastoUnidadA.intValue())))
+                .andExpect(jsonPath("$.unidadId", is("unidad-A302")));
+    }
+
+    @Test
+    void administradorPuedeActualizarGasto() throws Exception {
+        String body = objectMapper.writeValueAsString(
+                new GastoComunRequest("unidad-A302", "Cuota modificada", new BigDecimal("50000"), null));
+
+        mockMvc.perform(put("/api/v1/gastos-comunes/" + gastoUnidadA)
+                        .with(jwt().jwt(builder -> builder.claim("oid", "admin-1"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.concepto", is("Cuota modificada")))
+                .andExpect(jsonPath("$.monto", is(50000)));
+    }
+
+    @Test
+    void administradorPuedeEliminarGasto() throws Exception {
+        mockMvc.perform(delete("/api/v1/gastos-comunes/" + gastoUnidadA)
+                        .with(jwt().jwt(builder -> builder.claim("oid", "admin-1"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR"))))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void administradorPuedeRegistrarPagoYListarPagos() throws Exception {
+        String body = objectMapper.writeValueAsString(
+                new PagoRequest(new BigDecimal("15000"), MetodoPago.TRANSFERENCIA, "COMP-1234"));
+
+        mockMvc.perform(post("/api/v1/gastos-comunes/" + gastoUnidadA + "/pagos")
+                        .with(jwt().jwt(builder -> builder.claim("oid", "admin-1"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.monto", is(15000)))
+                .andExpect(jsonPath("$.comprobante", is("COMP-1234")));
+
+        mockMvc.perform(get("/api/v1/gastos-comunes/" + gastoUnidadA + "/pagos")
+                        .with(jwt().jwt(builder -> builder.claim("oid", "admin-1"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].monto", is(15000)));
     }
 }
