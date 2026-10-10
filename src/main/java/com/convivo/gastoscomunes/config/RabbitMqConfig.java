@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
+import org.springframework.amqp.core.FanoutExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
@@ -89,6 +90,37 @@ public class RabbitMqConfig {
     @Bean
     public Binding bindingDeadLetter(Queue gastosReservaCreadaDlq, DirectExchange gastosDlx) {
         return BindingBuilder.bind(gastosReservaCreadaDlq).to(gastosDlx).with(props.colaDeadLetter());
+    }
+
+    @Bean
+    public FanoutExchange gastosPdfFanout() {
+        return new FanoutExchange("gastos.pdf.fanout", true, false);
+    }
+
+    @Bean
+    public Queue gastosPdfGeneracionQueue() {
+        return QueueBuilder.durable("gastos_pdf_generacion_queue")
+                .withArgument("x-dead-letter-exchange", props.dlx())
+                .withArgument("x-dead-letter-routing-key", props.colaDeadLetter())
+                .build();
+    }
+
+    @Bean
+    public Queue gastosNotificacionesEmailQueue() {
+        return QueueBuilder.durable("gastos_notificaciones_email_queue")
+                .withArgument("x-dead-letter-exchange", props.dlx())
+                .withArgument("x-dead-letter-routing-key", props.colaDeadLetter())
+                .build();
+    }
+
+    @Bean
+    public Binding bindingGastosPdfGeneracion(Queue gastosPdfGeneracionQueue, FanoutExchange gastosPdfFanout) {
+        return BindingBuilder.bind(gastosPdfGeneracionQueue).to(gastosPdfFanout);
+    }
+
+    @Bean
+    public Binding bindingGastosNotificacionesEmail(Queue gastosNotificacionesEmailQueue, FanoutExchange gastosPdfFanout) {
+        return BindingBuilder.bind(gastosNotificacionesEmailQueue).to(gastosPdfFanout);
     }
 
     /**
