@@ -74,6 +74,12 @@ public class RabbitMqConfig {
     }
 
     @Bean
+    public Queue gastosComandosQueue() {
+        return QueueBuilder.durable("gastos_comandos_queue").build();
+    }
+
+
+    @Bean
     public Binding bindingReservaCreada(Queue gastosReservaCreadaQueue, TopicExchange espaciosEventsExchange) {
         return BindingBuilder.bind(gastosReservaCreadaQueue)
                 .to(espaciosEventsExchange)
