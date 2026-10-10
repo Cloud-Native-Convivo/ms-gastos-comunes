@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 
 /**
- * Payload de compensación publicado hacia {@code espacios_compensacion_queue}
+ * Payload de compensación publicado hacia la cola {@code gasto_fallido}
  * cuando el evento de reserva no puede convertirse en un gasto común
  * válido (Caso 3C del diagrama de saga coreografiada).
  */

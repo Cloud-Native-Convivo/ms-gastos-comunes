@@ -31,7 +31,7 @@ definieron el alcance:
    `reserva_espacio_creada` desde `gastos_reserva_creada_queue`
    (idempotente vía tabla `inbox_eventos`), crea el gasto común
    correspondiente, y ante datos inválidos publica `gasto_fallido` (vía
-   su propio Outbox) hacia `espacios_compensacion_queue` para que
+   su propio Outbox) hacia la cola `gasto_fallido` para que
    ms-espacios-comunes compense la reserva. Fallos técnicos persistentes
    terminan en `gastos_reserva_creada_dlq` (Dead Letter Queue) tras
    reintentos con backoff — ver `RabbitMqConfig`.
@@ -73,7 +73,7 @@ Swagger UI: `/swagger-ui.html` · OpenAPI JSON: `/v3/api-docs`.
 
 ## Ejecutar en local (perfil `local`, por defecto)
 
-No requiere Oracle ni Amazon MQ reales: usa H2 en memoria y el listener de
+No requiere Oracle ni RabbitMQ reales: usa H2 en memoria y el listener de
 RabbitMQ arranca desactivado (`RABBITMQ_AUTOSTART=false`) para que el
 servicio levante igual sin un broker corriendo.
 

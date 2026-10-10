@@ -25,8 +25,7 @@ import org.springframework.amqp.rabbit.config.StatelessRetryOperationsIntercepto
 import org.springframework.core.retry.RetryPolicy;
 
 /**
- * Declara la topología RabbitMQ (Amazon MQ) que consume/publica
- * ms-gastos-comunes:
+ * Declara la topología RabbitMQ que consume/publica ms-gastos-comunes:
  *
  * <ul>
  *   <li>Consume {@code reserva_espacio_creada} desde el exchange
@@ -36,8 +35,8 @@ import org.springframework.core.retry.RetryPolicy;
  *       Letter Queue tras agotar reintentos (sin requeue infinito).</li>
  *   <li>Ante fallos de negocio (ej. unidad inexistente), publica
  *       {@code gasto_fallido} de vuelta al mismo exchange, enrutado hacia
- *       {@code espacios_compensacion_queue} (consumida por
- *       ms-espacios-comunes para compensar la saga).</li>
+ *       la cola {@code gasto_fallido} (consumida por ms-espacios-comunes
+ *       para compensar la saga).</li>
  * </ul>
  */
 @Configuration

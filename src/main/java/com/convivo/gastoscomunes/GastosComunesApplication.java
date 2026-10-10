@@ -13,7 +13,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * REST de cobros, cuotas y pagos detrás del BFF (Nivel 3 de la cadena de
  * validación JWT: RBAC de dominio + ownership) y consume, de forma
  * asíncrona y transaccional (patrón Outbox/Inbox), los eventos de reservas
- * publicados por ms-espacios-comunes vía RabbitMQ (Amazon MQ).</p>
+ * publicados por ms-espacios-comunes vía RabbitMQ.</p>
  */
 @SpringBootApplication
 @EnableDiscoveryClient
