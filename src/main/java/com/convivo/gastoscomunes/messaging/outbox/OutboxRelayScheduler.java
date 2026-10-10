@@ -12,6 +12,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Relay Worker del patrón Outbox: cada {@code convivo.mensajeria.outbox-intervalo-ms}
@@ -40,6 +41,7 @@ public class OutboxRelayScheduler {
      * al más nuevo, hasta {@code convivo.mensajeria.outbox-lote-maximo}.
      */
     @Scheduled(fixedDelayString = "${convivo.mensajeria.outbox-intervalo-ms:5000}")
+    @Transactional
     public void publicarPendientes() {
         Pageable lote = PageRequest.of(0, props.outboxLoteMaximo());
         List<OutboxEvento> pendientes = repository.findByEstadoOrderByFechaCreacionAsc(EstadoOutbox.PENDIENTE, lote);
