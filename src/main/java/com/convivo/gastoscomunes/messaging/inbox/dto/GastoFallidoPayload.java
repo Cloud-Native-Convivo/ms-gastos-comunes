@@ -1,5 +1,6 @@
 package com.convivo.gastoscomunes.messaging.inbox.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 
 /**
@@ -7,7 +8,11 @@ import java.time.Instant;
  * cuando el evento de reserva no puede convertirse en un gasto común
  * válido (Caso 3C del diagrama de saga coreografiada).
  */
-public record GastoFallidoPayload(String reservaId, String motivo, Instant timestamp) {
+public record GastoFallidoPayload(
+    @JsonProperty("reserva_id") String reservaId,
+    @JsonProperty("motivo") String motivo,
+    @JsonProperty("timestamp") Instant timestamp
+) {
 
     /**
      * Crea el payload de compensación con la hora actual.
