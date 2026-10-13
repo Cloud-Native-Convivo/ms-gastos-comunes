@@ -69,8 +69,22 @@ public class IdentityContextFilter extends OncePerRequestFilter {
     private void poblarDesdeJwt(
             HttpServletRequest request, Jwt jwt, Iterable<? extends GrantedAuthority> autoridades) {
         String usuarioSub = jwt.getClaimAsString("oid");
+        if (usuarioSub == null) {
+            usuarioSub = jwt.getClaimAsString("sub");
+        }
         usuarioContexto.setUsuarioSub(usuarioSub);
-        usuarioContexto.setUnidadId(jwt.getClaimAsString("unidad_id"));
+
+        String unidadId = jwt.getClaimAsString("unidad_id");
+        if (unidadId == null) {
+            unidadId = jwt.getClaimAsString("unidad");
+        }
+        if (unidadId == null) {
+            unidadId = jwt.getClaimAsString("custom:unidad");
+        }
+        if (unidadId == null) {
+            unidadId = request.getHeader("X-Usuario-Unidad");
+        }
+        usuarioContexto.setUnidadId(unidadId);
         MDC.put(MDC_USUARIO_SUB, usuarioSub);
 
         Set<String> roles = new LinkedHashSet<>();

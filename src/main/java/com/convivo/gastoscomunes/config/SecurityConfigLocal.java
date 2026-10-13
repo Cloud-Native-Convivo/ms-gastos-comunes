@@ -108,6 +108,12 @@ public class SecurityConfigLocal {
             usuarioContexto.setUsuarioSub(sub);
             MDC.put("usuarioSub", sub);
 
+            String unidad = firstNonBlank(
+                    request.getHeader("X-Usuario-Unidad"),
+                    request.getHeader("X-Usuario-Unidad-Id"),
+                    "301-A");
+            usuarioContexto.setUnidadId(unidad);
+
             // Poner una autenticación en el SecurityContext para que
             // @PreAuthorize no falle con "authentication is null".
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
