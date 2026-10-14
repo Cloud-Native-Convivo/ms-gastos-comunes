@@ -87,6 +87,7 @@ jobs:
           output: trivy-resumen.txt
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          trivyignores: .trivyignore
           exit-code: "0"
 
       - name: Publicar resumen de vulnerabilidades
@@ -108,4 +109,5 @@ jobs:
           format: table
           severity: CRITICAL
           ignore-unfixed: true
+          trivyignores: .trivyignore
           exit-code: "1"
