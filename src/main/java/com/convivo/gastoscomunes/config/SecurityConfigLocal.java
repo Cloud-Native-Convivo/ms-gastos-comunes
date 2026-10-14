@@ -97,33 +97,30 @@ public class SecurityConfigLocal {
                         .filter(r -> !r.isBlank())
                         .forEach(r -> roles.add(r.equals("admin") ? "administrador" : r));
             }
-            // Sin header de roles: fallback a administrador para facilitar el
-            // desarrollo sin tener que configurar headers manualmente.
-            if (roles.isEmpty()) {
-                roles.add("administrador");
-            }
             usuarioContexto.setRoles(roles);
 
-            String sub = firstNonBlank(request.getHeader("X-Usuario-Sub"), "dev-user-local");
+            String sub = request.getHeader("X-Usuario-Sub");
             usuarioContexto.setUsuarioSub(sub);
-            MDC.put("usuarioSub", sub);
+            if (sub != null && !sub.isBlank()) {
+                MDC.put("usuarioSub", sub);
+            }
 
             String unidad = firstNonBlank(
                     request.getHeader("X-Usuario-Unidad"),
-                    request.getHeader("X-Usuario-Unidad-Id"),
-                    "301-A");
+                    request.getHeader("X-Usuario-Unidad-Id"));
             usuarioContexto.setUnidadId(unidad);
 
             // Poner una autenticación en el SecurityContext para que
-            // @PreAuthorize no falle con "authentication is null".
+            // @PreAuthorize evalúe las autoridades de forma consistente (fail-closed si no tiene roles).
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
                 var authorities = roles.stream()
                         .map(r -> (org.springframework.security.core.GrantedAuthority)
                                 new org.springframework.security.core.authority.SimpleGrantedAuthority(
                                         "ROLE_" + r.toUpperCase()))
                         .toList();
+                var principal = (sub != null && !sub.isBlank()) ? sub : "anonymous";
                 var auth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
-                        sub, null, authorities);
+                        principal, null, authorities);
                 SecurityContextHolder.getContext().setAuthentication(auth);
             }
 
