@@ -19,12 +19,13 @@ public class GastoReservaFactory implements GastoComunFactory {
 
     @Override
     public GastoComun crearGasto(
+            String condominioId,
             String unidadId,
             String concepto,
             BigDecimal monto,
             String referenciaExterna,
             LocalDate fechaVencimiento) {
         return GastoComun.crear(
-                unidadId, concepto, monto, OrigenGasto.RESERVA_ESPACIO, referenciaExterna, fechaVencimiento);
+                condominioId, unidadId, concepto, monto, OrigenGasto.RESERVA_ESPACIO, referenciaExterna, fechaVencimiento);
     }
 }

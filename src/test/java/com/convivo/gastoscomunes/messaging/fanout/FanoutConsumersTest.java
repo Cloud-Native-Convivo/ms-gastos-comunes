@@ -56,8 +56,8 @@ class FanoutConsumersTest {
         when(jobRepository.findById("ticket-100")).thenReturn(Optional.empty());
         when(jobRepository.save(any(SolicitudJob.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        GastoComun g1 = GastoComun.crear("204-B", "Gasto Común Ordinario", new BigDecimal("75000"), OrigenGasto.MANUAL, null, LocalDate.now());
-        GastoComun g2 = GastoComun.crear("204-B", "Fondo Extraordinario", new BigDecimal("25000"), OrigenGasto.MANUAL, null, LocalDate.now());
+        GastoComun g1 = GastoComun.crear("cond-1", "204-B", "Gasto Común Ordinario", new BigDecimal("75000"), OrigenGasto.MANUAL, null, LocalDate.now());
+        GastoComun g2 = GastoComun.crear("cond-1", "204-B", "Fondo Extraordinario", new BigDecimal("25000"), OrigenGasto.MANUAL, null, LocalDate.now());
         when(gastoRepository.findByUnidadId(eq("204-B"), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(g1, g2)));
 
         JsonNode payload = objectMapper.readTree("""

@@ -32,11 +32,15 @@ import org.hibernate.type.SqlTypes;
 @SQLRestriction("estado != 'ELIMINADO'")
 public class GastoComun {
 
-    private static final ZoneId ZONA_CHILE = ZoneId.of("America/Santiago");
+    public static final ZoneId ZONA_CHILE = ZoneId.of("America/Santiago");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** String libre sin FK, mismo patron que unidadId: el condominio vive en ms-condominios. */
+    @Column(name = "condominio_id", nullable = false, length = 64)
+    private String condominioId;
 
     @Column(name = "unidad_id", nullable = false, length = 64)
     private String unidadId;
@@ -84,6 +88,7 @@ public class GastoComun {
     }
 
     public static GastoComun crear(
+            String condominioId,
             String unidadId,
             String concepto,
             BigDecimal monto,
@@ -91,6 +96,7 @@ public class GastoComun {
             String referenciaExterna,
             LocalDate fechaVencimiento) {
         GastoComun gasto = new GastoComun();
+        gasto.condominioId = condominioId;
         gasto.unidadId = unidadId;
         gasto.concepto = concepto;
         gasto.monto = monto;
@@ -165,6 +171,10 @@ public class GastoComun {
 
     public Long getId() {
         return id;
+    }
+
+    public String getCondominioId() {
+        return condominioId;
     }
 
     public String getUnidadId() {

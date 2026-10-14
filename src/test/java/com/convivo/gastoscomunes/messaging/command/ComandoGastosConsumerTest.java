@@ -53,6 +53,7 @@ class ComandoGastosConsumerTest {
             "usuario_id": "admin-1",
             "rol": "administrador",
             "payload": {
+                "condominio_id": "cond-1",
                 "unidad_id": "101-A",
                 "concepto": "Gasto Octubre",
                 "monto": 45000,
@@ -89,6 +90,7 @@ class ComandoGastosConsumerTest {
             "rol": "administrador",
             "payload": {
                 "id": 15,
+                "condominioId": "cond-1",
                 "unidadId": "102-B",
                 "concepto": "Gasto Actualizado",
                 "monto": 55000,
@@ -101,7 +103,7 @@ class ComandoGastosConsumerTest {
         GastoComun gastoActualizado = mock(GastoComun.class);
         when(gastoActualizado.getId()).thenReturn(15L);
         when(gastoActualizado.getConcepto()).thenReturn("Gasto Actualizado");
-        when(gastoComunService.actualizar(eq(15L), any(GastoComunRequest.class))).thenReturn(gastoActualizado);
+        when(gastoComunService.actualizar(eq(15L), eq("cond-1"), any(GastoComunRequest.class))).thenReturn(gastoActualizado);
 
         SolicitudJob jobExistente = new SolicitudJob(
                 "ticket-102", "GASTOS", "ACTUALIZAR_GASTO", "admin-1", "PENDIENTE", null, null, Instant.now(), Instant.now());
@@ -110,7 +112,7 @@ class ComandoGastosConsumerTest {
 
         consumer.procesarComando(root);
 
-        verify(gastoComunService).actualizar(eq(15L), any(GastoComunRequest.class));
+        verify(gastoComunService).actualizar(eq(15L), eq("cond-1"), any(GastoComunRequest.class));
         verify(solicitudJobRepository, org.mockito.Mockito.atLeastOnce()).save(org.mockito.ArgumentMatchers.argThat(job ->
                 "ticket-102".equals(job.getTicketId()) && "COMPLETADO".equals(job.getEstado())));
     }
@@ -124,7 +126,8 @@ class ComandoGastosConsumerTest {
             "accion": "ELIMINAR_GASTO",
             "usuario_id": "admin-1",
             "payload": {
-                "gasto_id": 20
+                "gasto_id": 20,
+                "condominio_id": "cond-1"
             }
         }
         """;
@@ -135,7 +138,7 @@ class ComandoGastosConsumerTest {
 
         consumer.procesarComando(root);
 
-        verify(gastoComunService).eliminar(20L);
+        verify(gastoComunService).eliminar(20L, "cond-1");
         verify(solicitudJobRepository, org.mockito.Mockito.atLeastOnce()).save(org.mockito.ArgumentMatchers.argThat(job ->
                 "ticket-103".equals(job.getTicketId()) && "COMPLETADO".equals(job.getEstado())));
     }
@@ -150,6 +153,7 @@ class ComandoGastosConsumerTest {
             "usuario_id": "admin-1",
             "payload": {
                 "gasto_id": 25,
+                "condominio_id": "cond-1",
                 "monto": 30000,
                 "metodo": "TRANSFERENCIA",
                 "comprobante": "cmp-1234"
@@ -161,14 +165,15 @@ class ComandoGastosConsumerTest {
         Pago pagoMock = mock(Pago.class);
         when(pagoMock.getId()).thenReturn(101L);
         when(pagoMock.getMonto()).thenReturn(BigDecimal.valueOf(30000));
-        when(gastoComunService.registrarPago(eq(25L), any(PagoRequest.class), any(UsuarioContexto.class))).thenReturn(pagoMock);
+        when(gastoComunService.registrarPago(eq(25L), eq("cond-1"), any(PagoRequest.class), any(UsuarioContexto.class)))
+                .thenReturn(pagoMock);
 
         when(solicitudJobRepository.findById("ticket-104")).thenReturn(Optional.empty());
         when(solicitudJobRepository.save(any(SolicitudJob.class))).thenAnswer(inv -> inv.getArgument(0));
 
         consumer.procesarComando(root);
 
-        verify(gastoComunService).registrarPago(eq(25L), any(PagoRequest.class), any(UsuarioContexto.class));
+        verify(gastoComunService).registrarPago(eq(25L), eq("cond-1"), any(PagoRequest.class), any(UsuarioContexto.class));
         verify(solicitudJobRepository, org.mockito.Mockito.atLeastOnce()).save(org.mockito.ArgumentMatchers.argThat(job ->
                 "ticket-104".equals(job.getTicketId()) && "COMPLETADO".equals(job.getEstado())));
     }
@@ -208,7 +213,8 @@ class ComandoGastosConsumerTest {
         }
         """;
         JsonNode root = objectMapper.readTree(json);
-        org.mockito.Mockito.doThrow(new RuntimeException("Gasto no encontrado")).when(gastoComunService).eliminar(999L);
+        org.mockito.Mockito.doThrow(new RuntimeException("Gasto no encontrado"))
+                .when(gastoComunService).eliminar(999L, null);
         when(solicitudJobRepository.findById("ticket-err")).thenReturn(Optional.empty());
         when(solicitudJobRepository.save(any(SolicitudJob.class))).thenAnswer(inv -> inv.getArgument(0));
 

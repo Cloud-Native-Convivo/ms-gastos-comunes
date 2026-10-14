@@ -22,11 +22,20 @@ updates:
       spring:
         patterns:
           - "org.springframework*"
+          - "org.springdoc*"
+          - "com.fasterxml.jackson*"
       testing:
         patterns:
           - "org.junit*"
           - "org.mockito*"
           - "org.assertj*"
+    ignore:
+      - dependency-name: "org.springframework.boot:*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.springframework.cloud:*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.springdoc:*"
+        update-types: ["version-update:semver-major"]
 
   # Imagen base de contenedor (Dockerfile)
   - package-ecosystem: docker

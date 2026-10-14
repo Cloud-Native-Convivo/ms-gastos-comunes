@@ -30,8 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Prueba de integración de la API de Gastos Comunes: ownership por unidad
- * (propietario/residente solo su unidad; administrador/comité, todo) y
- * autorización por rol (crear cobros manuales requiere ADMINISTRADOR/COMITE).
+ * (propietario/residente solo su unidad; administrador/comité, todo),
+ * autorización por rol (crear cobros manuales requiere ADMINISTRADOR/COMITE)
+ * y filtro por condominio (multi-tenancy, TD-19).
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -46,6 +47,8 @@ import org.springframework.transaction.annotation.Transactional;
 })
 @org.springframework.test.context.ActiveProfiles("test")
 class GastoComunControllerTest {
+
+    private static final String COND = "cond-1";
 
     @Autowired
     private MockMvc mockMvc;
@@ -64,18 +67,19 @@ class GastoComunControllerTest {
     @BeforeEach
     void seed() {
         GastoComun gasto = GastoComun.crear(
-                "unidad-A302", "Cuota ordinaria septiembre", new BigDecimal("45000"), OrigenGasto.MANUAL, null, null);
+                COND, "unidad-A302", "Cuota ordinaria septiembre", new BigDecimal("45000"), OrigenGasto.MANUAL, null, null);
         gastoUnidadA = gastoComunRepository.save(gasto).getId();
     }
 
     @Test
     void sinTokenDevuelve401() throws Exception {
-        mockMvc.perform(get("/api/v1/gastos-comunes")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/gastos-comunes").param("condominioId", COND)).andExpect(status().isUnauthorized());
     }
 
     @Test
     void administradorPuedeListarTodosLosGastos() throws Exception {
         mockMvc.perform(get("/api/v1/gastos-comunes")
+                        .param("condominioId", COND)
                         .with(jwt().jwt(builder -> builder.claim("oid", "admin-1"))
                                 .authorities(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR"))))
                 .andExpect(status().isOk())
@@ -85,6 +89,7 @@ class GastoComunControllerTest {
     @Test
     void propietarioPuedeVerGastosDeSuPropiaUnidad() throws Exception {
         mockMvc.perform(get("/api/v1/gastos-comunes/unidad/unidad-A302")
+                        .param("condominioId", COND)
                         .with(jwt().jwt(builder -> builder.claim("oid", "prop-1").claim("unidad_id", "unidad-A302"))
                                 .authorities(new SimpleGrantedAuthority("ROLE_PROPIETARIO"))))
                 .andExpect(status().isOk())
@@ -94,6 +99,7 @@ class GastoComunControllerTest {
     @Test
     void propietarioNoPuedeVerGastosDeOtraUnidad() throws Exception {
         mockMvc.perform(get("/api/v1/gastos-comunes/unidad/unidad-A302")
+                        .param("condominioId", COND)
                         .with(jwt().jwt(builder -> builder.claim("oid", "prop-2").claim("unidad_id", "unidad-B101"))
                                 .authorities(new SimpleGrantedAuthority("ROLE_PROPIETARIO"))))
                 .andExpect(status().isForbidden());
@@ -102,7 +108,7 @@ class GastoComunControllerTest {
     @Test
     void propietarioNoPuedeCrearCobrosManuales() throws Exception {
         String body = objectMapper.writeValueAsString(
-                new GastoComunRequest("unidad-A302", "Multa", new BigDecimal("10000"), null));
+                new GastoComunRequest(COND, "unidad-A302", "Multa", new BigDecimal("10000"), null));
 
         mockMvc.perform(post("/api/v1/gastos-comunes")
                         .with(jwt().jwt(builder -> builder.claim("oid", "prop-1").claim("unidad_id", "unidad-A302"))
@@ -115,7 +121,7 @@ class GastoComunControllerTest {
     @Test
     void administradorPuedeCrearCobroManual() throws Exception {
         String body = objectMapper.writeValueAsString(
-                new GastoComunRequest("unidad-A302", "Multa", new BigDecimal("10000"), null));
+                new GastoComunRequest(COND, "unidad-A302", "Multa", new BigDecimal("10000"), null));
 
         mockMvc.perform(post("/api/v1/gastos-comunes")
                         .with(jwt().jwt(builder -> builder.claim("oid", "admin-1"))
@@ -123,13 +129,14 @@ class GastoComunControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.estado", is("PENDIENTE")));
+                .andExpect(jsonPath("$.estado", is("PENDIENTE")))
+                .andExpect(jsonPath("$.condominioId", is(COND)));
     }
 
     @Test
     void conceptoMasLargoQueLaColumnaOracleDevuelve400() throws Exception {
         String body = objectMapper.writeValueAsString(
-                new GastoComunRequest("unidad-A302", "x".repeat(201), new BigDecimal("10000"), null));
+                new GastoComunRequest(COND, "unidad-A302", "x".repeat(201), new BigDecimal("10000"), null));
 
         mockMvc.perform(post("/api/v1/gastos-comunes")
                         .with(jwt().jwt(builder -> builder.claim("oid", "admin-1"))
@@ -146,6 +153,7 @@ class GastoComunControllerTest {
                 new PagoRequest(new BigDecimal("45000.01"), MetodoPago.values()[0], null));
 
         mockMvc.perform(post("/api/v1/gastos-comunes/" + gastoUnidadA + "/pagos")
+                        .param("condominioId", COND)
                         .with(jwt().jwt(builder -> builder.claim("oid", "admin-1"))
                                 .authorities(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR")))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -157,7 +165,7 @@ class GastoComunControllerTest {
     @Test
     void headerDeRolesNoOtorgaPrivilegiosAUnTokenSinRoles() throws Exception {
         String body = objectMapper.writeValueAsString(
-                new GastoComunRequest("unidad-A302", "Multa", new BigDecimal("10000"), null));
+                new GastoComunRequest(COND, "unidad-A302", "Multa", new BigDecimal("10000"), null));
 
         mockMvc.perform(post("/api/v1/gastos-comunes")
                         .with(jwt().jwt(builder -> builder.claim("oid", "sin-rol-1")).authorities())
@@ -167,6 +175,7 @@ class GastoComunControllerTest {
                 .andExpect(status().isForbidden());
 
         mockMvc.perform(get("/api/v1/gastos-comunes/unidad/unidad-A302")
+                        .param("condominioId", COND)
                         .with(jwt().jwt(builder -> builder.claim("oid", "sin-rol-1")).authorities())
                         .header("X-Usuario-Roles", "admin"))
                 .andExpect(status().isForbidden());
@@ -178,6 +187,7 @@ class GastoComunControllerTest {
                 new PagoRequest(new BigDecimal("45000"), MetodoPago.values()[0], null));
 
         mockMvc.perform(post("/api/v1/gastos-comunes/" + gastoUnidadA + "/pagos")
+                        .param("condominioId", COND)
                         .with(jwt().jwt(builder -> builder.claim("oid", "prop-1").claim("unidad_id", "unidad-A302"))
                                 .authorities(new SimpleGrantedAuthority("ROLE_PROPIETARIO")))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -188,6 +198,7 @@ class GastoComunControllerTest {
     @Test
     void administradorPuedeObtenerGastoPorId() throws Exception {
         mockMvc.perform(get("/api/v1/gastos-comunes/" + gastoUnidadA)
+                        .param("condominioId", COND)
                         .with(jwt().jwt(builder -> builder.claim("oid", "admin-1"))
                                 .authorities(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR"))))
                 .andExpect(status().isOk())
@@ -196,11 +207,23 @@ class GastoComunControllerTest {
     }
 
     @Test
+    void administradorNoPuedeObtenerGastoDeOtroCondominio() throws Exception {
+        // Mismo id, condominio equivocado: se trata como inexistente, no se
+        // confirma su existencia a quien consulta desde otro condominio.
+        mockMvc.perform(get("/api/v1/gastos-comunes/" + gastoUnidadA)
+                        .param("condominioId", "cond-2")
+                        .with(jwt().jwt(builder -> builder.claim("oid", "admin-1"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR"))))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void administradorPuedeActualizarGasto() throws Exception {
         String body = objectMapper.writeValueAsString(
-                new GastoComunRequest("unidad-A302", "Cuota modificada", new BigDecimal("50000"), null));
+                new GastoComunRequest(COND, "unidad-A302", "Cuota modificada", new BigDecimal("50000"), null));
 
         mockMvc.perform(put("/api/v1/gastos-comunes/" + gastoUnidadA)
+                        .param("condominioId", COND)
                         .with(jwt().jwt(builder -> builder.claim("oid", "admin-1"))
                                 .authorities(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR")))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -213,6 +236,7 @@ class GastoComunControllerTest {
     @Test
     void administradorPuedeEliminarGasto() throws Exception {
         mockMvc.perform(delete("/api/v1/gastos-comunes/" + gastoUnidadA)
+                        .param("condominioId", COND)
                         .with(jwt().jwt(builder -> builder.claim("oid", "admin-1"))
                                 .authorities(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR"))))
                 .andExpect(status().isNoContent());
@@ -224,6 +248,7 @@ class GastoComunControllerTest {
                 new PagoRequest(new BigDecimal("15000"), MetodoPago.TRANSFERENCIA, "COMP-1234"));
 
         mockMvc.perform(post("/api/v1/gastos-comunes/" + gastoUnidadA + "/pagos")
+                        .param("condominioId", COND)
                         .with(jwt().jwt(builder -> builder.claim("oid", "admin-1"))
                                 .authorities(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR")))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -233,6 +258,7 @@ class GastoComunControllerTest {
                 .andExpect(jsonPath("$.comprobante", is("COMP-1234")));
 
         mockMvc.perform(get("/api/v1/gastos-comunes/" + gastoUnidadA + "/pagos")
+                        .param("condominioId", COND)
                         .with(jwt().jwt(builder -> builder.claim("oid", "admin-1"))
                                 .authorities(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR"))))
                 .andExpect(status().isOk())
