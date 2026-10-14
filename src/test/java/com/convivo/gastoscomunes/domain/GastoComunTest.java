@@ -15,7 +15,7 @@ class GastoComunTest {
     void marcaVencidoCuandoFechaVencimientoYaPaso() {
         GastoComun gasto = GastoComun.crear(
                 "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null,
-                LocalDate.now().minusDays(1));
+                LocalDate.now(GastoComun.ZONA_CHILE).minusDays(1));
 
         assertEquals(EstadoGasto.VENCIDO, gasto.getEstadoEfectivo());
         assertEquals(EstadoGasto.PENDIENTE, gasto.getEstado());
@@ -29,7 +29,7 @@ class GastoComunTest {
 
         GastoComun futuro = GastoComun.crear(
                 "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null,
-                LocalDate.now().plusDays(5));
+                LocalDate.now(GastoComun.ZONA_CHILE).plusDays(5));
         assertEquals(EstadoGasto.PENDIENTE, futuro.getEstadoEfectivo());
     }
 
@@ -37,7 +37,7 @@ class GastoComunTest {
     void gastoPagadoNoSeMuestraComoVencidoAunqueLaFechaHayaPasado() {
         GastoComun gasto = GastoComun.crear(
                 "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null,
-                LocalDate.now().minusDays(1));
+                LocalDate.now(GastoComun.ZONA_CHILE).minusDays(1));
         gasto.aplicarPago(new BigDecimal("10000"));
 
         assertEquals(EstadoGasto.PAGADO, gasto.getEstadoEfectivo());
