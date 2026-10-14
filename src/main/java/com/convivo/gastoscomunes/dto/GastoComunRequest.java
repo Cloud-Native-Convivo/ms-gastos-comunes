@@ -14,6 +14,8 @@ import java.time.LocalDate;
  * concepto VARCHAR2(200), monto NUMBER(12,2) — ver AGENTS.md §5.1.
  */
 public record GastoComunRequest(
+        @NotBlank(message = "condominioId es obligatorio") @Size(max = 64, message = "condominioId admite hasta 64 caracteres")
+                String condominioId,
         @NotBlank(message = "unidadId es obligatorio") @Size(max = 64, message = "unidadId admite hasta 64 caracteres")
                 String unidadId,
         @NotBlank(message = "concepto es obligatorio") @Size(max = 200, message = "concepto admite hasta 200 caracteres")

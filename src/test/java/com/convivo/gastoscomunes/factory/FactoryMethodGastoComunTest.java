@@ -23,6 +23,7 @@ class FactoryMethodGastoComunTest {
 
         LocalDate vencimiento = LocalDate.now().plusDays(15);
         GastoComun gasto = manualFactory.crearGasto(
+                "cond-1",
                 "101",
                 "Mantención ordinaria",
                 new BigDecimal("50000"),
@@ -31,6 +32,7 @@ class FactoryMethodGastoComunTest {
         );
 
         assertThat(gasto.getOrigen()).isEqualTo(OrigenGasto.MANUAL);
+        assertThat(gasto.getCondominioId()).isEqualTo("cond-1");
         assertThat(gasto.getUnidadId()).isEqualTo("101");
         assertThat(gasto.getConcepto()).isEqualTo("Mantención ordinaria");
         assertThat(gasto.getMonto()).isEqualByComparingTo(new BigDecimal("50000"));
@@ -44,6 +46,7 @@ class FactoryMethodGastoComunTest {
         assertThat(reservaFactory.getOrigen()).isEqualTo(OrigenGasto.RESERVA_ESPACIO);
 
         GastoComun gasto = reservaFactory.crearGasto(
+                "cond-1",
                 "202",
                 "Uso Quincho",
                 new BigDecimal("15000"),

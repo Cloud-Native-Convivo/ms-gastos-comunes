@@ -11,5 +11,9 @@ public interface GastoComunRepository extends JpaRepository<GastoComun, Long> {
 
     Page<GastoComun> findByUnidadId(String unidadId, Pageable pageable);
 
+    Page<GastoComun> findByCondominioId(String condominioId, Pageable pageable);
+
+    Page<GastoComun> findByUnidadIdAndCondominioId(String unidadId, String condominioId, Pageable pageable);
+
     Optional<GastoComun> findByOrigenAndReferenciaExterna(OrigenGasto origen, String referenciaExterna);
 }

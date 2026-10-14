@@ -9,6 +9,7 @@ import java.time.LocalDate;
 
 public record GastoComunResponse(
         Long id,
+        String condominioId,
         String unidadId,
         String concepto,
         BigDecimal monto,
@@ -22,6 +23,7 @@ public record GastoComunResponse(
     public static GastoComunResponse desde(GastoComun gasto) {
         return new GastoComunResponse(
                 gasto.getId(),
+                gasto.getCondominioId(),
                 gasto.getUnidadId(),
                 gasto.getConcepto(),
                 gasto.getMonto(),
