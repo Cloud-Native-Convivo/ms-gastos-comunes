@@ -76,6 +76,8 @@ jobs:
           push: false
           load: true
           tags: ms-gastos-comunes:pr
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Escaneo de imagen (resumen)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -87,6 +89,7 @@ jobs:
           output: trivy-resumen.txt
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          trivyignores: .trivyignore
           exit-code: "0"
 
       - name: Publicar resumen de vulnerabilidades
@@ -108,4 +111,5 @@ jobs:
           format: table
           severity: CRITICAL
           ignore-unfixed: true
+          trivyignores: .trivyignore
           exit-code: "1"

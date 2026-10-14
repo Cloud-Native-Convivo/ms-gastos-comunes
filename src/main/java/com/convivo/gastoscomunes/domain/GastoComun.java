@@ -32,7 +32,7 @@ import org.hibernate.type.SqlTypes;
 @SQLRestriction("estado != 'ELIMINADO'")
 public class GastoComun {
 
-    private static final ZoneId ZONA_CHILE = ZoneId.of("America/Santiago");
+    public static final ZoneId ZONA_CHILE = ZoneId.of("America/Santiago");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
