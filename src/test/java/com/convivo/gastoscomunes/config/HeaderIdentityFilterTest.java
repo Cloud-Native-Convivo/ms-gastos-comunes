@@ -48,11 +48,12 @@ class HeaderIdentityFilterTest {
     }
 
     @Test
-    void sinHeadersUsaValoresDeDesarrollo() throws Exception {
+    void sinHeadersAplicaFailClosed() throws Exception {
         filtro.doFilter(new MockHttpServletRequest(), new MockHttpServletResponse(), new MockFilterChain());
 
-        assertThat(usuario.getRoles()).containsExactly("administrador");
-        assertThat(usuario.getUsuarioSub()).isEqualTo("dev-user-local");
+        assertThat(usuario.getRoles()).isEmpty();
+        assertThat(usuario.getUsuarioSub()).isNull();
+        assertThat(usuario.getUnidadId()).isNull();
         assertThat(usuario.getCorrelationId()).isNotBlank();
     }
 
