@@ -46,6 +46,18 @@ logging:
   level:
     com.convivo.gastoscomunes: DEBUG
 
+# El contenedor está en backend-network y db-network a la vez; prefer-ip-address
+# (application.yml) deja que Spring elija la IP de cualquiera de las dos redes
+# al registrarse en Eureka -- si elige la de db-network, el BFF (que no está
+# en esa red) recibe una IP inalcanzable y el circuit breaker abre con 503
+# "servicio no disponible" aunque el servicio esté sano. ms-espacios-comunes
+# y ms-condominios evitan esto registrando el nombre del servicio Docker
+# (EUREKA_IP) en vez de una IP; acá se hace lo mismo fijando el hostname.
+eureka:
+  instance:
+    prefer-ip-address: false
+    hostname: ms-gastos-comunes
+
 # El App Registration de la API (528af346) emite tokens v1.0 (sts.windows.net) en vez de
 # v2.0, y su audience real es el App ID URI completo (api://...) -- ver decodificación del
 # access token real usado para diagnosticar esto. Mismo workaround aplicado en bff/.env
