@@ -75,6 +75,7 @@ public class ComandoGastosConsumer {
         try {
             switch (accion) {
                 case "REGISTRAR_GASTO" -> {
+                    String condominioId = payload.has("condominio_id") ? payload.get("condominio_id").asText() : payload.path("condominioId").asText(null);
                     String unidadId = payload.has("unidad_id") ? payload.get("unidad_id").asText() : payload.path("unidadId").asText(null);
                     String concepto = payload.path("concepto").asText(null);
                     BigDecimal monto = payload.has("monto") ? new BigDecimal(payload.get("monto").asText()) : BigDecimal.ZERO;
@@ -83,7 +84,7 @@ public class ComandoGastosConsumer {
                     if (fechaStr != null && !fechaStr.isBlank()) {
                         fechaVencimiento = LocalDate.parse(fechaStr);
                     }
-                    GastoComunRequest req = new GastoComunRequest(unidadId, concepto, monto, fechaVencimiento);
+                    GastoComunRequest req = new GastoComunRequest(condominioId, unidadId, concepto, monto, fechaVencimiento);
                     GastoComun creado = gastoComunService.crear(req);
                     job.setEstado("COMPLETADO");
                     job.setResultado(objectMapper.writeValueAsString(Map.of(
@@ -94,6 +95,7 @@ public class ComandoGastosConsumer {
                 }
                 case "ACTUALIZAR_GASTO" -> {
                     Long id = payload.has("id") ? payload.get("id").asLong() : payload.path("gasto_id").asLong();
+                    String condominioId = payload.has("condominio_id") ? payload.get("condominio_id").asText() : payload.path("condominioId").asText(null);
                     String unidadId = payload.has("unidad_id") ? payload.get("unidad_id").asText() : payload.path("unidadId").asText(null);
                     String concepto = payload.path("concepto").asText(null);
                     BigDecimal monto = payload.has("monto") ? new BigDecimal(payload.get("monto").asText()) : BigDecimal.ZERO;
@@ -102,8 +104,8 @@ public class ComandoGastosConsumer {
                     if (fechaStr != null && !fechaStr.isBlank()) {
                         fechaVencimiento = LocalDate.parse(fechaStr);
                     }
-                    GastoComunRequest req = new GastoComunRequest(unidadId, concepto, monto, fechaVencimiento);
-                    GastoComun actualizado = gastoComunService.actualizar(id, req);
+                    GastoComunRequest req = new GastoComunRequest(condominioId, unidadId, concepto, monto, fechaVencimiento);
+                    GastoComun actualizado = gastoComunService.actualizar(id, condominioId, req);
                     job.setEstado("COMPLETADO");
                     job.setResultado(objectMapper.writeValueAsString(Map.of(
                             "id", actualizado.getId(),
@@ -111,12 +113,14 @@ public class ComandoGastosConsumer {
                 }
                 case "ELIMINAR_GASTO" -> {
                     Long id = payload.has("id") ? payload.get("id").asLong() : payload.path("gasto_id").asLong();
-                    gastoComunService.eliminar(id);
+                    String condominioId = payload.has("condominio_id") ? payload.get("condominio_id").asText() : payload.path("condominioId").asText(null);
+                    gastoComunService.eliminar(id, condominioId);
                     job.setEstado("COMPLETADO");
                     job.setResultado(objectMapper.writeValueAsString(Map.of("id", id, "eliminado", true)));
                 }
                 case "REGISTRAR_PAGO" -> {
                     Long gastoId = payload.has("gasto_id") ? payload.get("gasto_id").asLong() : payload.path("gastoId").asLong();
+                    String condominioId = payload.has("condominio_id") ? payload.get("condominio_id").asText() : payload.path("condominioId").asText(null);
                     BigDecimal monto = payload.has("monto") ? new BigDecimal(payload.get("monto").asText()) : BigDecimal.ZERO;
                     String metodoStr = payload.has("metodo") ? payload.get("metodo").asText() : payload.path("metodo_pago").asText("TRANSFERENCIA");
                     com.convivo.gastoscomunes.domain.MetodoPago metodo = com.convivo.gastoscomunes.domain.MetodoPago.valueOf(metodoStr.toUpperCase());
@@ -125,7 +129,7 @@ public class ComandoGastosConsumer {
                     UsuarioContexto uc = new UsuarioContexto();
                     uc.setUsuarioSub(usuarioId);
                     uc.setRoles(Set.of("administrador"));
-                    Pago pago = gastoComunService.registrarPago(gastoId, req, uc);
+                    Pago pago = gastoComunService.registrarPago(gastoId, condominioId, req, uc);
                     job.setEstado("COMPLETADO");
                     job.setResultado(objectMapper.writeValueAsString(Map.of("id", pago.getId(), "monto", pago.getMonto())));
                 }

@@ -17,6 +17,7 @@ public interface GastoComunFactory {
     OrigenGasto getOrigen();
 
     GastoComun crearGasto(
+            String condominioId,
             String unidadId,
             String concepto,
             BigDecimal monto,

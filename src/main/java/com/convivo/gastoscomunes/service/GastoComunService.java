@@ -58,21 +58,32 @@ public class GastoComunService {
      */
     public GastoComun crear(GastoComunRequest request) {
         GastoComun gasto = gastoManualFactory.crearGasto(
-                request.unidadId(), request.concepto(), request.monto(), null,
+                request.condominioId(), request.unidadId(), request.concepto(), request.monto(), null,
                 request.fechaVencimiento());
         return gastoComunRepository.save(gasto);
     }
 
-    /** No permite reasignar la unidad (request.unidadId() se ignora): solo concepto/monto/vencimiento. */
-    public GastoComun actualizar(Long id, GastoComunRequest request) {
+    /**
+     * No permite reasignar condominio ni unidad (esos campos del request se
+     * ignoran): solo concepto/monto/vencimiento.
+     *
+     * @throws RecursoNoEncontradoException si el gasto no existe o es de otro condominio
+     */
+    public GastoComun actualizar(Long id, String condominioId, GastoComunRequest request) {
         GastoComun gasto = buscarOLanzar(id);
+        verificarCondominio(gasto, condominioId);
         gasto.actualizar(request.concepto(), request.monto(), request.fechaVencimiento());
         return gastoComunRepository.save(gasto);
     }
 
-    /** Borrado lógico: un gasto eliminado ya no aparece en listados/consultas. */
-    public void eliminar(Long id) {
+    /**
+     * Borrado lógico: un gasto eliminado ya no aparece en listados/consultas.
+     *
+     * @throws RecursoNoEncontradoException si el gasto no existe o es de otro condominio
+     */
+    public void eliminar(Long id, String condominioId) {
         GastoComun gasto = buscarOLanzar(id);
+        verificarCondominio(gasto, condominioId);
         gasto.eliminar();
         gastoComunRepository.save(gasto);
     }
@@ -87,42 +98,46 @@ public class GastoComunService {
      * @throws OperacionNoPermitidaException si no es gestor y su token no trae {@code unidad_id}
      */
     @Transactional(readOnly = true)
-    public Page<GastoComun> listar(UsuarioContexto usuario, Pageable pageable) {
+    public Page<GastoComun> listar(UsuarioContexto usuario, String condominioId, Pageable pageable) {
         if (usuario.esGestorCondominio()) {
-            return gastoComunRepository.findAll(pageable);
+            return gastoComunRepository.findByCondominioId(condominioId, pageable);
         }
-        return listarPorUnidad(requerirUnidadPropia(usuario), usuario, pageable);
+        return listarPorUnidad(requerirUnidadPropia(usuario), condominioId, usuario, pageable);
     }
 
     /**
-     * Lista los gastos de una unidad, validando ownership.
+     * Lista los gastos de una unidad dentro de un condominio, validando ownership.
      *
      * @param unidadId unidad a consultar
+     * @param condominioId condominio a consultar (filtro, no reemplaza el chequeo de unidad)
      * @param usuario identidad y roles del request actual
      * @param pageable paginación y orden
      * @return página de gastos no eliminados de la unidad
      * @throws OperacionNoPermitidaException si el usuario no administra el condominio ni es dueño de la unidad
      */
     @Transactional(readOnly = true)
-    public Page<GastoComun> listarPorUnidad(String unidadId, UsuarioContexto usuario, Pageable pageable) {
+    public Page<GastoComun> listarPorUnidad(
+            String unidadId, String condominioId, UsuarioContexto usuario, Pageable pageable) {
         if (!usuario.puedeOperarSobreUnidad(unidadId)) {
             throw new OperacionNoPermitidaException("No tiene acceso a los gastos comunes de esta unidad");
         }
-        return gastoComunRepository.findByUnidadId(unidadId, pageable);
+        return gastoComunRepository.findByUnidadIdAndCondominioId(unidadId, condominioId, pageable);
     }
 
     /**
-     * Obtiene un gasto por id, validando ownership sobre su unidad.
+     * Obtiene un gasto por id, validando condominio y ownership sobre su unidad.
      *
      * @param id identificador del gasto
+     * @param condominioId condominio esperado del gasto
      * @param usuario identidad y roles del request actual
      * @return el gasto encontrado
-     * @throws RecursoNoEncontradoException si no existe o está eliminado
+     * @throws RecursoNoEncontradoException si no existe, está eliminado o es de otro condominio
      * @throws OperacionNoPermitidaException si el usuario no puede operar sobre la unidad del gasto
      */
     @Transactional(readOnly = true)
-    public GastoComun obtener(Long id, UsuarioContexto usuario) {
+    public GastoComun obtener(Long id, String condominioId, UsuarioContexto usuario) {
         GastoComun gasto = buscarOLanzar(id);
+        verificarCondominio(gasto, condominioId);
         if (!usuario.puedeOperarSobreUnidad(gasto.getUnidadId())) {
             throw new OperacionNoPermitidaException("No tiene acceso a este gasto común");
         }
@@ -141,8 +156,9 @@ public class GastoComunService {
      * @throws OperacionNoPermitidaException si el usuario no puede operar sobre la unidad del gasto
      * @see GastoComun#aplicarPago(BigDecimal)
      */
-    public Pago registrarPago(Long gastoId, PagoRequest request, UsuarioContexto usuario) {
+    public Pago registrarPago(Long gastoId, String condominioId, PagoRequest request, UsuarioContexto usuario) {
         GastoComun gasto = buscarOLanzar(gastoId);
+        verificarCondominio(gasto, condominioId);
         if (!usuario.puedeOperarSobreUnidad(gasto.getUnidadId())) {
             throw new OperacionNoPermitidaException("No puede registrar pagos sobre esta unidad");
         }
@@ -173,8 +189,9 @@ public class GastoComunService {
      * @throws OperacionNoPermitidaException si el usuario no puede operar sobre la unidad del gasto
      */
     @Transactional(readOnly = true)
-    public Page<Pago> listarPagos(Long gastoId, UsuarioContexto usuario, Pageable pageable) {
+    public Page<Pago> listarPagos(Long gastoId, String condominioId, UsuarioContexto usuario, Pageable pageable) {
         GastoComun gasto = buscarOLanzar(gastoId);
+        verificarCondominio(gasto, condominioId);
         if (!usuario.puedeOperarSobreUnidad(gasto.getUnidadId())) {
             throw new OperacionNoPermitidaException("No tiene acceso al historial de pagos de esta unidad");
         }
@@ -188,10 +205,15 @@ public class GastoComunService {
      */
     public GastoComun crearDesdeReserva(
             String unidadId, String concepto, BigDecimal monto, String reservaId) {
+        // El evento reserva_espacio_creada (ms-espacios-comunes) todavia no
+        // incluye condominio_id en su payload — se asume el condominio
+        // placeholder "1" hasta que el evento lo propague (mismo default
+        // usado en la migracion V3, TD-19).
+        String condominioIdPorDefecto = "1";
         return gastoComunRepository
                 .findByOrigenAndReferenciaExterna(OrigenGasto.RESERVA_ESPACIO, reservaId)
                 .orElseGet(() -> gastoComunRepository.save(gastoReservaFactory.crearGasto(
-                        unidadId, concepto, monto, reservaId, null)));
+                        condominioIdPorDefecto, unidadId, concepto, monto, reservaId, null)));
     }
 
     private GastoComun buscarOLanzar(Long id) {
@@ -199,6 +221,13 @@ public class GastoComunService {
                 .findById(id)
                 .filter(gasto -> gasto.getEstado() != EstadoGasto.ELIMINADO)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Gasto común " + id + " no encontrado"));
+    }
+
+    /** Un gasto de otro condominio se trata como inexistente: nunca confirma su existencia a quien no debe verlo. */
+    private void verificarCondominio(GastoComun gasto, String condominioId) {
+        if (!gasto.getCondominioId().equals(condominioId)) {
+            throw new RecursoNoEncontradoException("Gasto común " + gasto.getId() + " no encontrado");
+        }
     }
 
     private String requerirUnidadPropia(UsuarioContexto usuario) {

@@ -40,6 +40,8 @@ import org.springframework.data.domain.Pageable;
 @ExtendWith(MockitoExtension.class)
 class GastoComunServiceTest {
 
+    private static final String COND = "cond-1";
+
     @Mock
     private GastoComunRepository gastoRepo;
 
@@ -66,7 +68,11 @@ class GastoComunServiceTest {
     }
 
     private static GastoComun gasto(String unidadId) {
-        return GastoComun.crear(unidadId, "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
+        return gasto(COND, unidadId);
+    }
+
+    private static GastoComun gasto(String condominioId, String unidadId) {
+        return GastoComun.crear(condominioId, unidadId, "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
     }
 
     private void existe(long id, GastoComun gasto) {
@@ -76,46 +82,59 @@ class GastoComunServiceTest {
     @Test
     void crearActualizarYEliminarPersistenElGasto() {
         when(gastoRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        GastoComunRequest req = new GastoComunRequest("A-1", "Cuota octubre", new BigDecimal("5000"), LocalDate.now());
+        GastoComunRequest req = new GastoComunRequest(COND, "A-1", "Cuota octubre", new BigDecimal("5000"), LocalDate.now());
 
         GastoComun creado = servicio.crear(req);
+        assertThat(creado.getCondominioId()).isEqualTo(COND);
         assertThat(creado.getUnidadId()).isEqualTo("A-1");
         assertThat(creado.getOrigen()).isEqualTo(OrigenGasto.MANUAL);
 
         existe(1L, creado);
-        GastoComun actualizado = servicio.actualizar(1L, new GastoComunRequest("OTRA", "Nuevo", new BigDecimal("7000"), null));
+        GastoComun actualizado = servicio.actualizar(
+                1L, COND, new GastoComunRequest(COND, "OTRA", "Nuevo", new BigDecimal("7000"), null));
         assertThat(actualizado.getConcepto()).isEqualTo("Nuevo");
         assertThat(actualizado.getUnidadId()).isEqualTo("A-1");
 
-        servicio.eliminar(1L);
+        servicio.eliminar(1L, COND);
         assertThat(creado.getEstado()).isEqualTo(EstadoGasto.ELIMINADO);
     }
 
     @Test
     void gastoInexistenteOEliminadoEsNoEncontrado() {
         when(gastoRepo.findById(9L)).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> servicio.eliminar(9L)).isInstanceOf(RecursoNoEncontradoException.class);
+        assertThatThrownBy(() -> servicio.eliminar(9L, COND)).isInstanceOf(RecursoNoEncontradoException.class);
 
         GastoComun eliminado = gasto("A-1");
         eliminado.eliminar();
         existe(8L, eliminado);
-        assertThatThrownBy(() -> servicio.obtener(8L, usuario("A-1", "administrador")))
+        assertThatThrownBy(() -> servicio.obtener(8L, COND, usuario("A-1", "administrador")))
                 .isInstanceOf(RecursoNoEncontradoException.class);
+    }
+
+    @Test
+    void actualizarYEliminarDeOtroCondominioEsNoEncontrado() {
+        GastoComun deOtroCondominio = gasto("cond-2", "A-1");
+        existe(1L, deOtroCondominio);
+
+        assertThatThrownBy(() -> servicio.actualizar(
+                1L, COND, new GastoComunRequest(COND, "A-1", "Nuevo", new BigDecimal("7000"), null)))
+                .isInstanceOf(RecursoNoEncontradoException.class);
+        assertThatThrownBy(() -> servicio.eliminar(1L, COND)).isInstanceOf(RecursoNoEncontradoException.class);
     }
 
     @Test
     void listarSegunRolYUnidad() {
         Page<GastoComun> todos = new PageImpl<>(List.of(gasto("A-1"), gasto("B-2")));
         Page<GastoComun> propios = new PageImpl<>(List.of(gasto("A-1")));
-        when(gastoRepo.findAll(pagina)).thenReturn(todos);
-        when(gastoRepo.findByUnidadId("A-1", pagina)).thenReturn(propios);
+        when(gastoRepo.findByCondominioId(COND, pagina)).thenReturn(todos);
+        when(gastoRepo.findByUnidadIdAndCondominioId("A-1", COND, pagina)).thenReturn(propios);
 
-        assertThat(servicio.listar(usuario(null, "comite"), pagina)).isSameAs(todos);
-        assertThat(servicio.listar(usuario("A-1", "residente"), pagina)).isSameAs(propios);
-        assertThatThrownBy(() -> servicio.listar(usuario(null, "residente"), pagina))
+        assertThat(servicio.listar(usuario(null, "comite"), COND, pagina)).isSameAs(todos);
+        assertThat(servicio.listar(usuario("A-1", "residente"), COND, pagina)).isSameAs(propios);
+        assertThatThrownBy(() -> servicio.listar(usuario(null, "residente"), COND, pagina))
                 .isInstanceOf(OperacionNoPermitidaException.class)
                 .hasMessageContaining("unidad_id");
-        assertThatThrownBy(() -> servicio.listarPorUnidad("B-2", usuario("A-1", "propietario"), pagina))
+        assertThatThrownBy(() -> servicio.listarPorUnidad("B-2", COND, usuario("A-1", "propietario"), pagina))
                 .isInstanceOf(OperacionNoPermitidaException.class);
     }
 
@@ -123,9 +142,20 @@ class GastoComunServiceTest {
     void obtenerValidaOwnership() {
         GastoComun g = gasto("A-1");
         existe(1L, g);
-        assertThat(servicio.obtener(1L, usuario("A-1", "residente"))).isSameAs(g);
-        assertThatThrownBy(() -> servicio.obtener(1L, usuario("B-2", "residente")))
+        assertThat(servicio.obtener(1L, COND, usuario("A-1", "residente"))).isSameAs(g);
+        assertThatThrownBy(() -> servicio.obtener(1L, COND, usuario("B-2", "residente")))
                 .isInstanceOf(OperacionNoPermitidaException.class);
+    }
+
+    @Test
+    void obtenerDeOtroCondominioEsNoEncontradoAunqueSeaGestor() {
+        // El filtro de condominio aplica con AND sobre el chequeo de ownership:
+        // ser gestor del condominio propio no da acceso a datos de otro condominio.
+        GastoComun deOtroCondominio = gasto("cond-2", "A-1");
+        existe(1L, deOtroCondominio);
+
+        assertThatThrownBy(() -> servicio.obtener(1L, COND, usuario(null, "administrador")))
+                .isInstanceOf(RecursoNoEncontradoException.class);
     }
 
     @Test
@@ -135,7 +165,8 @@ class GastoComunServiceTest {
         when(pagoRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         Pago pago = servicio.registrarPago(
-                1L, new PagoRequest(new BigDecimal("4000"), MetodoPago.TRANSFERENCIA, "comp-1"), usuario("A-1", "residente"));
+                1L, COND, new PagoRequest(new BigDecimal("4000"), MetodoPago.TRANSFERENCIA, "comp-1"),
+                usuario("A-1", "residente"));
 
         assertThat(g.getSaldoPendiente()).isEqualByComparingTo("6000");
         assertThat(g.getEstado()).isEqualTo(EstadoGasto.PARCIAL);
@@ -149,7 +180,7 @@ class GastoComunServiceTest {
         GastoComun g = gasto("A-1");
         existe(1L, g);
         PagoRequest req = new PagoRequest(BigDecimal.ONE, MetodoPago.EFECTIVO, null);
-        assertThatThrownBy(() -> servicio.registrarPago(1L, req, usuario("B-2", "residente")))
+        assertThatThrownBy(() -> servicio.registrarPago(1L, COND, req, usuario("B-2", "residente")))
                 .isInstanceOf(OperacionNoPermitidaException.class);
         assertThat(g.getSaldoPendiente()).isEqualByComparingTo("10000");
         verify(pagoRepo, never()).save(any());
@@ -160,8 +191,8 @@ class GastoComunServiceTest {
         existe(1L, gasto("A-1"));
         Page<Pago> pagos = new PageImpl<>(List.of());
         when(pagoRepo.findByGastoComunId(1L, pagina)).thenReturn(pagos);
-        assertThat(servicio.listarPagos(1L, usuario(null, "administrador"), pagina)).isSameAs(pagos);
-        assertThatThrownBy(() -> servicio.listarPagos(1L, usuario("B-2", "residente"), pagina))
+        assertThat(servicio.listarPagos(1L, COND, usuario(null, "administrador"), pagina)).isSameAs(pagos);
+        assertThatThrownBy(() -> servicio.listarPagos(1L, COND, usuario("B-2", "residente"), pagina))
                 .isInstanceOf(OperacionNoPermitidaException.class);
     }
 
@@ -181,6 +212,3 @@ class GastoComunServiceTest {
         assertThat(nuevo.getReferenciaExterna()).isEqualTo("res-2");
     }
 }
-
-
-

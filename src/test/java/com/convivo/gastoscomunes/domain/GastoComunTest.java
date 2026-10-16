@@ -14,7 +14,7 @@ class GastoComunTest {
     @Test
     void marcaVencidoCuandoFechaVencimientoYaPaso() {
         GastoComun gasto = GastoComun.crear(
-                "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null,
+                "cond-1", "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null,
                 LocalDate.now(GastoComun.ZONA_CHILE).minusDays(1));
 
         assertEquals(EstadoGasto.VENCIDO, gasto.getEstadoEfectivo());
@@ -24,11 +24,11 @@ class GastoComunTest {
     @Test
     void noMarcaVencidoSiTodaviaNoVenceOSinFecha() {
         GastoComun sinFecha = GastoComun.crear(
-                "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
+                "cond-1", "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
         assertEquals(EstadoGasto.PENDIENTE, sinFecha.getEstadoEfectivo());
 
         GastoComun futuro = GastoComun.crear(
-                "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null,
+                "cond-1", "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null,
                 LocalDate.now(GastoComun.ZONA_CHILE).plusDays(5));
         assertEquals(EstadoGasto.PENDIENTE, futuro.getEstadoEfectivo());
     }
@@ -36,7 +36,7 @@ class GastoComunTest {
     @Test
     void gastoPagadoNoSeMuestraComoVencidoAunqueLaFechaHayaPasado() {
         GastoComun gasto = GastoComun.crear(
-                "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null,
+                "cond-1", "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null,
                 LocalDate.now(GastoComun.ZONA_CHILE).minusDays(1));
         gasto.aplicarPago(new BigDecimal("10000"));
 
@@ -46,7 +46,7 @@ class GastoComunTest {
     @Test
     void actualizarConservaLoYaPagadoAlRecalcularSaldo() {
         GastoComun gasto = GastoComun.crear(
-                "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
+                "cond-1", "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
         gasto.aplicarPago(new BigDecimal("4000")); // saldoPendiente = 6000, PARCIAL
 
         gasto.actualizar("Cuota corregida", new BigDecimal("12000"), LocalDate.now().plusDays(10));
@@ -59,7 +59,7 @@ class GastoComunTest {
     @Test
     void actualizarSobreGastoEliminadoLanzaExcepcion() {
         GastoComun gasto = GastoComun.crear(
-                "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
+                "cond-1", "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
         gasto.eliminar();
 
         assertThrows(ReglaNegocioException.class,
@@ -69,7 +69,7 @@ class GastoComunTest {
     @Test
     void eliminarDejaElGastoComoEliminado() {
         GastoComun gasto = GastoComun.crear(
-                "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
+                "cond-1", "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
 
         gasto.eliminar();
 
@@ -79,7 +79,7 @@ class GastoComunTest {
     @Test
     void noSePuedeEliminarUnGastoYaPagado() {
         GastoComun gasto = GastoComun.crear(
-                "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
+                "cond-1", "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
         gasto.aplicarPago(new BigDecimal("10000"));
 
         assertThrows(ReglaNegocioException.class, gasto::eliminar);
@@ -89,7 +89,7 @@ class GastoComunTest {
     @Test
     void pagoExactoAlSaldoDejaGastoPagado() {
         GastoComun gasto = GastoComun.crear(
-                "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
+                "cond-1", "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
 
         gasto.aplicarPago(new BigDecimal("10000.00"));
 
@@ -100,7 +100,7 @@ class GastoComunTest {
     @Test
     void pagoQueExcedeElSaldoSeRechazaSinTocarElSaldo() {
         GastoComun gasto = GastoComun.crear(
-                "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
+                "cond-1", "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
 
         assertThrows(ReglaNegocioException.class, () -> gasto.aplicarPago(new BigDecimal("10000.01")));
         assertEquals(new BigDecimal("10000"), gasto.getSaldoPendiente());
@@ -110,7 +110,7 @@ class GastoComunTest {
     @Test
     void pagoSobreGastoYaPagadoSeRechaza() {
         GastoComun gasto = GastoComun.crear(
-                "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
+                "cond-1", "unidad-A302", "Cuota", new BigDecimal("10000"), OrigenGasto.MANUAL, null, null);
         gasto.aplicarPago(new BigDecimal("10000"));
 
         assertThrows(ReglaNegocioException.class, () -> gasto.aplicarPago(new BigDecimal("1")));

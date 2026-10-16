@@ -46,9 +46,9 @@ class GastoComunSecurityTest {
     @BeforeEach
     void seed() {
         GastoComun gasto1 = GastoComun.crear(
-                "unidad-101", "Gasto Unidad 101", new BigDecimal("30000"), OrigenGasto.MANUAL, null, null);
+                "cond-1", "unidad-101", "Gasto Unidad 101", new BigDecimal("30000"), OrigenGasto.MANUAL, null, null);
         GastoComun gasto2 = GastoComun.crear(
-                "unidad-202", "Gasto Unidad 202", new BigDecimal("50000"), OrigenGasto.MANUAL, null, null);
+                "cond-1", "unidad-202", "Gasto Unidad 202", new BigDecimal("50000"), OrigenGasto.MANUAL, null, null);
         gastoComunRepository.save(gasto1);
         gastoComunRepository.save(gasto2);
     }
@@ -56,7 +56,7 @@ class GastoComunSecurityTest {
     @Test
     void residenteNoPuedeCrearCobroManual_retorna403() throws Exception {
         String body = objectMapper.writeValueAsString(
-                new GastoComunRequest("unidad-101", "Cobro Ilegal", new BigDecimal("20000"), null));
+                new GastoComunRequest("cond-1", "unidad-101", "Cobro Ilegal", new BigDecimal("20000"), null));
 
         mockMvc.perform(post("/api/v1/gastos-comunes")
                         .header("X-Usuario-Roles", "residente")
@@ -70,7 +70,7 @@ class GastoComunSecurityTest {
     @Test
     void administradorPuedeCrearCobroManual_retorna201() throws Exception {
         String body = objectMapper.writeValueAsString(
-                new GastoComunRequest("unidad-101", "Cobro Admin", new BigDecimal("25000"), null));
+                new GastoComunRequest("cond-1", "unidad-101", "Cobro Admin", new BigDecimal("25000"), null));
 
         mockMvc.perform(post("/api/v1/gastos-comunes")
                         .header("X-Usuario-Roles", "administrador")
@@ -84,6 +84,7 @@ class GastoComunSecurityTest {
     @Test
     void residenteListandoGastos_veSoloGastosDeSuUnidad() throws Exception {
         mockMvc.perform(get("/api/v1/gastos-comunes")
+                        .param("condominioId", "cond-1")
                         .header("X-Usuario-Roles", "residente")
                         .header("X-Usuario-Sub", "user-res-1")
                         .header("X-Usuario-Unidad", "unidad-101"))
@@ -95,6 +96,7 @@ class GastoComunSecurityTest {
     @Test
     void residenteConsultandoUnidadAjena_retorna403() throws Exception {
         mockMvc.perform(get("/api/v1/gastos-comunes/unidad/unidad-202")
+                        .param("condominioId", "cond-1")
                         .header("X-Usuario-Roles", "residente")
                         .header("X-Usuario-Sub", "user-res-1")
                         .header("X-Usuario-Unidad", "unidad-101"))
@@ -104,7 +106,7 @@ class GastoComunSecurityTest {
     @Test
     void peticionSinRoles_enEndpointProtegido_retorna403() throws Exception {
         String body = objectMapper.writeValueAsString(
-                new GastoComunRequest("unidad-101", "Cobro Sin Rol", new BigDecimal("10000"), null));
+                new GastoComunRequest("cond-1", "unidad-101", "Cobro Sin Rol", new BigDecimal("10000"), null));
 
         mockMvc.perform(post("/api/v1/gastos-comunes")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -115,6 +117,7 @@ class GastoComunSecurityTest {
     @Test
     void residenteSinUnidadAsociada_retorna403() throws Exception {
         mockMvc.perform(get("/api/v1/gastos-comunes")
+                        .param("condominioId", "cond-1")
                         .header("X-Usuario-Roles", "residente")
                         .header("X-Usuario-Sub", "user-res-1"))
                 .andExpect(status().isForbidden());

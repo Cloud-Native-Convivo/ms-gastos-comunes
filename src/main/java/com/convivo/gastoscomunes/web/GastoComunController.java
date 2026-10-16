@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -65,8 +66,10 @@ public class GastoComunController {
      */
     @GetMapping
     public ResponseEntity<Page<GastoComunResponse>> listar(
+            @RequestParam String condominioId,
             @PageableDefault(size = 20, sort = "fechaCreacion", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<GastoComunResponse> pagina = service.listar(usuarioContexto, pageable).map(GastoComunResponse::desde);
+        Page<GastoComunResponse> pagina =
+                service.listar(usuarioContexto, condominioId, pageable).map(GastoComunResponse::desde);
         return ResponseEntity.ok(pagina);
     }
 
@@ -80,9 +83,10 @@ public class GastoComunController {
     @GetMapping("/unidad/{unidadId}")
     public ResponseEntity<Page<GastoComunResponse>> listarPorUnidad(
             @PathVariable String unidadId,
+            @RequestParam String condominioId,
             @PageableDefault(size = 20, sort = "fechaCreacion", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<GastoComunResponse> pagina =
-                service.listarPorUnidad(unidadId, usuarioContexto, pageable).map(GastoComunResponse::desde);
+        Page<GastoComunResponse> pagina = service.listarPorUnidad(unidadId, condominioId, usuarioContexto, pageable)
+                .map(GastoComunResponse::desde);
         return ResponseEntity.ok(pagina);
     }
 
@@ -93,8 +97,8 @@ public class GastoComunController {
      * @return el gasto
      */
     @GetMapping("/{id}")
-    public GastoComunResponse obtener(@PathVariable Long id) {
-        return GastoComunResponse.desde(service.obtener(id, usuarioContexto));
+    public GastoComunResponse obtener(@PathVariable Long id, @RequestParam String condominioId) {
+        return GastoComunResponse.desde(service.obtener(id, condominioId, usuarioContexto));
     }
 
     /**
@@ -107,8 +111,9 @@ public class GastoComunController {
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','COMITE')")
-    public GastoComunResponse actualizar(@PathVariable Long id, @Valid @RequestBody GastoComunRequest request) {
-        return GastoComunResponse.desde(service.actualizar(id, request));
+    public GastoComunResponse actualizar(
+            @PathVariable Long id, @RequestParam String condominioId, @Valid @RequestBody GastoComunRequest request) {
+        return GastoComunResponse.desde(service.actualizar(id, condominioId, request));
     }
 
     /**
@@ -119,8 +124,8 @@ public class GastoComunController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','COMITE')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void eliminar(@PathVariable Long id) {
-        service.eliminar(id);
+    public void eliminar(@PathVariable Long id, @RequestParam String condominioId) {
+        service.eliminar(id, condominioId);
     }
 
     /**
@@ -134,8 +139,9 @@ public class GastoComunController {
     @PostMapping("/{id}/pagos")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','COMITE')")
     @ResponseStatus(HttpStatus.CREATED)
-    public PagoResponse registrarPago(@PathVariable Long id, @Valid @RequestBody PagoRequest request) {
-        Pago pago = service.registrarPago(id, request, usuarioContexto);
+    public PagoResponse registrarPago(
+            @PathVariable Long id, @RequestParam String condominioId, @Valid @RequestBody PagoRequest request) {
+        Pago pago = service.registrarPago(id, condominioId, request, usuarioContexto);
         return PagoResponse.desde(pago);
     }
 
@@ -149,8 +155,10 @@ public class GastoComunController {
     @GetMapping("/{id}/pagos")
     public ResponseEntity<Page<PagoResponse>> listarPagos(
             @PathVariable Long id,
+            @RequestParam String condominioId,
             @PageableDefault(size = 20, sort = "fechaPago", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<PagoResponse> pagina = service.listarPagos(id, usuarioContexto, pageable).map(PagoResponse::desde);
+        Page<PagoResponse> pagina =
+                service.listarPagos(id, condominioId, usuarioContexto, pageable).map(PagoResponse::desde);
         return ResponseEntity.ok(pagina);
     }
 }
