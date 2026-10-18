@@ -16,9 +16,11 @@ public class NotificacionGastosConsumer {
     private static final Logger log = LoggerFactory.getLogger(NotificacionGastosConsumer.class);
 
     private final ObjectMapper objectMapper;
+    private final EmailEnviadoRepository emailEnviadoRepository;
 
-    public NotificacionGastosConsumer(ObjectMapper objectMapper) {
+    public NotificacionGastosConsumer(ObjectMapper objectMapper, EmailEnviadoRepository emailEnviadoRepository) {
         this.objectMapper = objectMapper;
+        this.emailEnviadoRepository = emailEnviadoRepository;
     }
 
     @RabbitListener(queues = "#{@gastosNotificacionesEmailQueue.name}")
@@ -33,11 +35,19 @@ public class NotificacionGastosConsumer {
             return;
         }
 
+        String ticketId = root.path("ticket_id").asText();
+        if (ticketId.isBlank() || emailEnviadoRepository.existsById(ticketId)) {
+            log.info("Notificacion de email duplicada o sin ticket_id, se descarta: ticketId='{}'", ticketId);
+            channel.basicAck(deliveryTag, false);
+            return;
+        }
+
         try {
+            emailEnviadoRepository.save(new EmailEnviado(ticketId));
             procesarNotificacion(root);
             channel.basicAck(deliveryTag, false);
         } catch (Exception ex) {
-            log.error("Fallo al despachar notificacion de email para deliveryTag={}. Enviando a DLQ", deliveryTag, ex);
+            log.error("Fallo al despachar notificacion de email para ticketId='{}'. Enviando a DLQ", ticketId, ex);
             channel.basicReject(deliveryTag, false);
         }
     }
