@@ -7,6 +7,7 @@ import com.convivo.gastoscomunes.domain.Pago;
 import com.convivo.gastoscomunes.dto.GastoComunRequest;
 import com.convivo.gastoscomunes.dto.PagoRequest;
 import com.convivo.gastoscomunes.exception.OperacionNoPermitidaException;
+import com.convivo.gastoscomunes.exception.ReglaNegocioException;
 import com.convivo.gastoscomunes.exception.RecursoNoEncontradoException;
 import com.convivo.gastoscomunes.factory.GastoManualFactory;
 import com.convivo.gastoscomunes.factory.GastoReservaFactory;
@@ -16,6 +17,8 @@ import com.convivo.gastoscomunes.security.UsuarioContexto;
 import java.math.BigDecimal;
 import com.convivo.gastoscomunes.messaging.outbox.OutboxEvento;
 import com.convivo.gastoscomunes.messaging.outbox.OutboxEventoRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -30,6 +33,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class GastoComunService {
+
+    private static final Logger log = LoggerFactory.getLogger(GastoComunService.class);
 
     private final GastoComunRepository gastoComunRepository;
     private final PagoRepository pagoRepository;
@@ -214,6 +219,27 @@ public class GastoComunService {
                 .findByOrigenAndReferenciaExterna(OrigenGasto.RESERVA_ESPACIO, reservaId)
                 .orElseGet(() -> gastoComunRepository.save(gastoReservaFactory.crearGasto(
                         condominioIdPorDefecto, unidadId, concepto, monto, reservaId, null)));
+    }
+
+    /**
+     * Anula (borrado lógico) el cobro asociado a una reserva que expiró sin
+     * pago. Si el cobro ya está {@code PAGADO} (pagó justo cuando expiraba),
+     * no se anula: se deja para revisión manual.
+     *
+     * @param reservaId reserva que expiró
+     */
+    public void anularPorReservaExpirada(String reservaId) {
+        gastoComunRepository.findByOrigenAndReferenciaExterna(OrigenGasto.RESERVA_ESPACIO, reservaId)
+                .ifPresentOrElse(gasto -> {
+                    try {
+                        gasto.eliminar();
+                        gastoComunRepository.save(gasto);
+                    } catch (ReglaNegocioException ex) {
+                        log.error(
+                                "PAGO SOBRE RESERVA EXPIRADA: no se anula el cobro de la reserva {} (ya pagado). Requiere revisión manual.",
+                                reservaId);
+                    }
+                }, () -> log.warn("No se encontró cobro para la reserva expirada {}", reservaId));
     }
 
     private GastoComun buscarOLanzar(Long id) {
