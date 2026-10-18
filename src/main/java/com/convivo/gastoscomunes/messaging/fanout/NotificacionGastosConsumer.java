@@ -43,28 +43,56 @@ public class NotificacionGastosConsumer {
             return;
         }
 
-        // Reclamar: INSERT inmediato (saveAndFlush, no save) ANTES de enviar
-        // el correo. Si dos copias llegan casi juntas, la segunda choca con
-        // la llave primaria aquí mismo — nunca después de haber "enviado"
-        // (esa es la carrera que el prototipo documentó en idempotencia.py).
-        try {
-            emailEnviadoRepository.saveAndFlush(new EmailEnviado(ticketId));
-        } catch (DataIntegrityViolationException ex) {
-            log.info("Notificacion de email duplicada, ya reservada: ticketId='{}'", ticketId);
+        boolean redelivered = message.getMessageProperties().isRedelivered();
+        EmailEnviado reserva = reclamar(ticketId, redelivered);
+        if (reserva == null) {
             channel.basicAck(deliveryTag, false);
             return;
         }
 
         try {
             procesarNotificacion(root);
+            reserva.completar();
+            emailEnviadoRepository.save(reserva);
             channel.basicAck(deliveryTag, false);
         } catch (Exception ex) {
-            // Liberar: borra la reserva para que una reentrega real (si
-            // llega) pueda reintentar el envío en vez de descartarlo como
-            // "ya enviado".
-            emailEnviadoRepository.deleteById(ticketId);
-            log.error("Fallo al despachar notificacion de email para ticketId='{}'. Enviando a DLQ", ticketId, ex);
+            // No se borra: la fila queda EN_CURSO para que una reentrega
+            // real de RabbitMQ (redelivered=true) pueda retomarla en vez de
+            // perder el correo para siempre. Sin job de reconciliacion: si
+            // nunca llega esa reentrega, el envio se pierde (riesgo aceptado).
+            log.error("Fallo al despachar notificacion de email para ticketId='{}'. Enviando a DLQ, queda EN_CURSO", ticketId, ex);
             channel.basicReject(deliveryTag, false);
+        }
+    }
+
+    /**
+     * Reclama el ticket para procesarlo. Devuelve la fila a completar, o
+     * {@code null} si hay que descartar el mensaje sin despachar: ya está
+     * COMPLETADO, está EN_CURSO por otra copia concurrente (sin reentrega),
+     * o perdió la carrera de inserción contra otra copia casi simultánea.
+     * Si está EN_CURSO y el mensaje llegó marcado {@code redelivered}, se
+     * retoma (el proceso que la reservó pudo haber muerto antes de completar).
+     */
+    private EmailEnviado reclamar(String ticketId, boolean redelivered) {
+        EmailEnviado existente = emailEnviadoRepository.findById(ticketId).orElse(null);
+        if (existente != null) {
+            if (existente.getEstado() == EstadoNotificacion.COMPLETADO) {
+                log.info("Notificacion de email ya enviada, se descarta: ticketId='{}'", ticketId);
+                return null;
+            }
+            if (!redelivered) {
+                log.info("Notificacion de email duplicada, ya en curso: ticketId='{}'", ticketId);
+                return null;
+            }
+            log.warn("Notificacion de email reentregada mientras estaba EN_CURSO, se retoma: ticketId='{}'", ticketId);
+            return existente;
+        }
+
+        try {
+            return emailEnviadoRepository.saveAndFlush(new EmailEnviado(ticketId));
+        } catch (DataIntegrityViolationException ex) {
+            log.info("Notificacion de email duplicada, perdio la carrera de insercion: ticketId='{}'", ticketId);
+            return null;
         }
     }
 

@@ -1,5 +1,6 @@
 package com.convivo.gastoscomunes.messaging.fanout;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -12,6 +13,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,50 +43,99 @@ class NotificacionGastosConsumerTest {
         consumer = new NotificacionGastosConsumer(new ObjectMapper(), repository);
     }
 
-    private static Message mensaje(String cuerpo) {
+    private static Message mensaje(String cuerpo, boolean redelivered) {
         MessageProperties propiedades = new MessageProperties();
         propiedades.setDeliveryTag(TAG);
+        propiedades.setRedelivered(redelivered);
         return new Message(cuerpo.getBytes(StandardCharsets.UTF_8), propiedades);
     }
 
+    private static Message mensaje(String cuerpo) {
+        return mensaje(cuerpo, false);
+    }
+
     @Test
-    void reservaElTicketConSaveAndFlushAntesDeDespacharYHaceAck() throws Exception {
+    void reservaElTicketEnCursoAntesDeDespacharYLoCompletaAlTerminar() throws Exception {
+        when(repository.findById("t-1")).thenReturn(Optional.empty());
         when(repository.saveAndFlush(any(EmailEnviado.class))).thenReturn(new EmailEnviado("t-1"));
 
         consumer.recibir(mensaje(JSON), canal);
 
-        verify(repository, times(1)).saveAndFlush(any(EmailEnviado.class));
+        verify(repository)
+                .saveAndFlush(org.mockito.ArgumentMatchers.argThat(
+                        e -> e.getTicketId().equals("t-1") && e.getEstado() == EstadoNotificacion.EN_CURSO));
+        verify(repository)
+                .save(org.mockito.ArgumentMatchers.argThat(
+                        e -> e.getTicketId().equals("t-1") && e.getEstado() == EstadoNotificacion.COMPLETADO));
         verify(canal).basicAck(TAG, false);
     }
 
     @Test
-    void dosCopiasCasiJuntasNoDespachanDosVeces() throws Exception {
-        // La primera reserva el ticket_id (INSERT real via saveAndFlush); la
-        // segunda, casi junta, choca con la llave primaria ANTES de que
-        // ninguna de las dos haya llegado a "enviar" — esa es la carrera que
-        // el prototipo documentó (idempotencia.py): reservar con un INSERT
-        // antes de tocar SMTP, no marcar después de enviar.
+    void dosCopiasCasiJuntasPierdeLaCarreraDeInsercionYSeDescartaSinRetomar() throws Exception {
+        // Primera copia: no existe fila -> inserta. Segunda copia (este test):
+        // tampoco ve la fila todavia (llega casi junto) pero el INSERT choca
+        // con la llave primaria -- se descarta sin reintentar el envio.
+        when(repository.findById("t-1")).thenReturn(Optional.empty());
         when(repository.saveAndFlush(any(EmailEnviado.class)))
-                .thenReturn(new EmailEnviado("t-1"))
                 .thenThrow(new DataIntegrityViolationException("llave primaria duplicada"));
 
-        consumer.recibir(mensaje(JSON), canal);
-        consumer.recibir(mensaje(JSON), canal);
+        consumer.recibir(mensaje(JSON, false), canal);
 
-        verify(repository, times(2)).saveAndFlush(any(EmailEnviado.class));
-        verify(canal, times(2)).basicAck(TAG, false);
-        verify(repository, never()).deleteById(any());
+        verify(canal).basicAck(TAG, false);
+        verify(repository, never()).save(any());
     }
 
     @Test
-    void siFallaElEnvioSeLiberaLaReservaParaPermitirReintentoReal() throws Exception {
+    void segundaCopiaEnCursoSinRedeliverySeDescartaSinRetomar() throws Exception {
+        EmailEnviado enCurso = new EmailEnviado("t-1"); // EN_CURSO por defecto, otra copia la esta procesando
+        when(repository.findById("t-1")).thenReturn(Optional.of(enCurso));
+
+        consumer.recibir(mensaje(JSON, false), canal);
+
+        verify(repository, never()).saveAndFlush(any());
+        verify(repository, never()).save(any());
+        verify(canal).basicAck(TAG, false);
+    }
+
+    @Test
+    void ticketEnCursoYReentregaRedeliveredSeRetomaYDespacha() throws Exception {
+        // Simula que el proceso que reservo el ticket murio antes de completar:
+        // RabbitMQ reentrega el mismo mensaje (redelivered=true) a otro consumidor.
+        EmailEnviado enCurso = new EmailEnviado("t-1");
+        when(repository.findById("t-1")).thenReturn(Optional.of(enCurso));
+
+        consumer.recibir(mensaje(JSON, true), canal);
+
+        verify(repository, never()).saveAndFlush(any());
+        assertEquals(EstadoNotificacion.COMPLETADO, enCurso.getEstado());
+        verify(repository).save(enCurso);
+        verify(canal).basicAck(TAG, false);
+    }
+
+    @Test
+    void ticketYaCompletadoSeDescartaAunqueSeaRedelivered() throws Exception {
+        EmailEnviado completado = new EmailEnviado("t-1");
+        completado.completar();
+        when(repository.findById("t-1")).thenReturn(Optional.of(completado));
+
+        consumer.recibir(mensaje(JSON, true), canal);
+
+        verify(repository, never()).saveAndFlush(any());
+        verify(repository, never()).save(any());
+        verify(canal).basicAck(TAG, false);
+    }
+
+    @Test
+    void siFallaElEnvioNoSeBorraLaReservaQuedaEnCursoParaReintentoPorReentrega() throws Exception {
+        when(repository.findById("t-1")).thenReturn(Optional.empty());
         when(repository.saveAndFlush(any(EmailEnviado.class))).thenReturn(new EmailEnviado("t-1"));
         NotificacionGastosConsumer consumerSpia = spy(consumer);
         doThrow(new RuntimeException("smtp caido")).when(consumerSpia).procesarNotificacion(any(JsonNode.class));
 
         consumerSpia.recibir(mensaje(JSON), canal);
 
-        verify(repository).deleteById("t-1");
+        verify(repository, never()).deleteById(any());
+        verify(repository, never()).save(any());
         verify(canal).basicReject(TAG, false);
         verify(canal, never()).basicAck(TAG, false);
     }
