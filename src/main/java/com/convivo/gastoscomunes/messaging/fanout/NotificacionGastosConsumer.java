@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -36,17 +37,32 @@ public class NotificacionGastosConsumer {
         }
 
         String ticketId = root.path("ticket_id").asText();
-        if (ticketId.isBlank() || emailEnviadoRepository.existsById(ticketId)) {
-            log.info("Notificacion de email duplicada o sin ticket_id, se descarta: ticketId='{}'", ticketId);
+        if (ticketId.isBlank()) {
+            log.info("Notificacion de email sin ticket_id, se descarta");
+            channel.basicAck(deliveryTag, false);
+            return;
+        }
+
+        // Reclamar: INSERT inmediato (saveAndFlush, no save) ANTES de enviar
+        // el correo. Si dos copias llegan casi juntas, la segunda choca con
+        // la llave primaria aquí mismo — nunca después de haber "enviado"
+        // (esa es la carrera que el prototipo documentó en idempotencia.py).
+        try {
+            emailEnviadoRepository.saveAndFlush(new EmailEnviado(ticketId));
+        } catch (DataIntegrityViolationException ex) {
+            log.info("Notificacion de email duplicada, ya reservada: ticketId='{}'", ticketId);
             channel.basicAck(deliveryTag, false);
             return;
         }
 
         try {
-            emailEnviadoRepository.save(new EmailEnviado(ticketId));
             procesarNotificacion(root);
             channel.basicAck(deliveryTag, false);
         } catch (Exception ex) {
+            // Liberar: borra la reserva para que una reentrega real (si
+            // llega) pueda reintentar el envío en vez de descartarlo como
+            // "ya enviado".
+            emailEnviadoRepository.deleteById(ticketId);
             log.error("Fallo al despachar notificacion de email para ticketId='{}'. Enviando a DLQ", ticketId, ex);
             channel.basicReject(deliveryTag, false);
         }
