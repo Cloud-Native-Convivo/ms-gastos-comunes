@@ -1,7 +1,6 @@
 package com.convivo.gastoscomunes.messaging.inbox;
 
 import com.convivo.gastoscomunes.messaging.inbox.dto.ReservaExpiradaEvent;
-import com.convivo.gastoscomunes.service.GastoComunService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
 import java.io.IOException;
@@ -13,26 +12,20 @@ import org.springframework.stereotype.Component;
 
 /**
  * Consume {@code reserva_expirada} desde {@code gastos_reserva_expirada_queue}
- * y anula (borrado lógico) el cobro asociado, salvo que ya esté pagado.
- * Idempotente por {@code eventId}, reutilizando la misma tabla Inbox que
- * {@link ReservaCreadaInboxService} (los event_id son globalmente únicos
- * entre tipos de evento).
+ * con ACK manual. La idempotencia (Inbox) y la anulación del cobro viven en
+ * {@link ReservaExpiradaInboxService}, en una sola transacción — este
+ * listener solo traduce el resultado a ACK/reject.
  */
 @Component
 public class ReservaExpiradaListener {
 
     private static final Logger log = LoggerFactory.getLogger(ReservaExpiradaListener.class);
 
-    private final InboxEventoRepository inboxRepository;
-    private final GastoComunService gastoComunService;
+    private final ReservaExpiradaInboxService inboxService;
     private final ObjectMapper objectMapper;
 
-    public ReservaExpiradaListener(
-            InboxEventoRepository inboxRepository,
-            GastoComunService gastoComunService,
-            ObjectMapper objectMapper) {
-        this.inboxRepository = inboxRepository;
-        this.gastoComunService = gastoComunService;
+    public ReservaExpiradaListener(ReservaExpiradaInboxService inboxService, ObjectMapper objectMapper) {
+        this.inboxService = inboxService;
         this.objectMapper = objectMapper;
     }
 
@@ -48,18 +41,25 @@ public class ReservaExpiradaListener {
             return;
         }
 
-        if (!evento.esValido() || inboxRepository.existsById(evento.eventId())) {
-            if (evento.esValido()) {
-                log.info("Evento reserva_expirada duplicado descartado: eventId={}", evento.eventId());
-            } else {
-                log.warn("Evento reserva_expirada sin eventId/reservaId, se descarta: {}", evento);
-            }
-            channel.basicAck(deliveryTag, false);
-            return;
-        }
+        // Fallos técnicos (ej. DB caída) propagan la excepción sin ACK: el
+        // RetryInterceptor de RabbitMqConfig reintenta y, al agotar
+        // intentos, rechaza sin requeue -> DLQ (mismo mecanismo que
+        // ReservaEspacioCreadaListener).
+        ResultadoProcesamiento resultado = inboxService.procesar(evento);
 
-        inboxRepository.save(new InboxEvento(evento.eventId(), "reserva_expirada"));
-        gastoComunService.anularPorReservaExpirada(evento.reservaId());
-        channel.basicAck(deliveryTag, false);
+        switch (resultado) {
+            case DUPLICADO -> {
+                log.info("Evento reserva_expirada duplicado descartado: eventId={}", evento.eventId());
+                channel.basicAck(deliveryTag, false);
+            }
+            case INVALIDO -> {
+                log.warn("Evento reserva_expirada sin eventId/reservaId, se descarta: {}", evento);
+                channel.basicAck(deliveryTag, false);
+            }
+            case PROCESADO -> {
+                log.info("Cobro anulado por reserva expirada: reservaId={}", evento.reservaId());
+                channel.basicAck(deliveryTag, false);
+            }
+        }
     }
 }

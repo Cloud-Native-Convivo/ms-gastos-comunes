@@ -5,7 +5,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.convivo.gastoscomunes.service.GastoComunService;
+import com.convivo.gastoscomunes.messaging.inbox.dto.ReservaExpiradaEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
 import java.nio.charset.StandardCharsets;
@@ -25,10 +25,7 @@ class ReservaExpiradaListenerTest {
             {"event_id":"evt-exp-1","reserva_id":"res-1"}""";
 
     @Mock
-    private InboxEventoRepository inboxRepository;
-
-    @Mock
-    private GastoComunService gastoComunService;
+    private ReservaExpiradaInboxService inboxService;
 
     @Mock
     private Channel canal;
@@ -37,7 +34,7 @@ class ReservaExpiradaListenerTest {
 
     @BeforeEach
     void crear() {
-        listener = new ReservaExpiradaListener(inboxRepository, gastoComunService, new ObjectMapper());
+        listener = new ReservaExpiradaListener(inboxService, new ObjectMapper());
     }
 
     private static Message mensaje(String cuerpo) {
@@ -47,22 +44,22 @@ class ReservaExpiradaListenerTest {
     }
 
     @Test
-    void anulaElCobroYHaceAck() throws Exception {
-        when(inboxRepository.existsById("evt-exp-1")).thenReturn(false);
+    void procesadoHaceAck() throws Exception {
+        when(inboxService.procesar(eq(new ReservaExpiradaEvent("evt-exp-1", "res-1"))))
+                .thenReturn(ResultadoProcesamiento.PROCESADO);
 
         listener.recibir(mensaje(JSON_VALIDO), canal);
 
-        verify(gastoComunService).anularPorReservaExpirada("res-1");
         verify(canal).basicAck(TAG, false);
     }
 
     @Test
-    void eventoDuplicadoSeDescartaSinAnularDeNuevo() throws Exception {
-        when(inboxRepository.existsById("evt-exp-1")).thenReturn(true);
+    void duplicadoHaceAckSinReprocesar() throws Exception {
+        when(inboxService.procesar(eq(new ReservaExpiradaEvent("evt-exp-1", "res-1"))))
+                .thenReturn(ResultadoProcesamiento.DUPLICADO);
 
         listener.recibir(mensaje(JSON_VALIDO), canal);
 
-        verify(gastoComunService, never()).anularPorReservaExpirada(eq("res-1"));
         verify(canal).basicAck(TAG, false);
     }
 
