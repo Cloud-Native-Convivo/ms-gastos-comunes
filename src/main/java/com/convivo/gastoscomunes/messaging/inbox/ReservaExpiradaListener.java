@@ -1,6 +1,7 @@
 package com.convivo.gastoscomunes.messaging.inbox;
 
 import com.convivo.gastoscomunes.messaging.inbox.dto.ReservaExpiradaEvent;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
 import java.io.IOException;
@@ -34,7 +35,8 @@ public class ReservaExpiradaListener {
         long deliveryTag = message.getMessageProperties().getDeliveryTag();
         ReservaExpiradaEvent evento;
         try {
-            evento = objectMapper.readValue(message.getBody(), ReservaExpiradaEvent.class);
+            JsonNode root = objectMapper.readTree(message.getBody());
+            evento = ReservaExpiradaEvent.desde(root);
         } catch (Exception ex) {
             log.error("Fallo irrecuperable al deserializar reserva_expirada. Rechazando a DLQ: deliveryTag={}", deliveryTag, ex);
             channel.basicReject(deliveryTag, false);
