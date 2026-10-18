@@ -240,6 +240,20 @@ class GastoComunServiceTest {
     }
 
     @Test
+    void anularPorReservaExpiradaNoTocaCobroConAbonoParcial() {
+        GastoComun gasto = GastoComun.crear(
+                COND, "A-1", "Reserva Espacio 5", new BigDecimal("15000"), OrigenGasto.RESERVA_ESPACIO, "5", null);
+        gasto.aplicarPago(new BigDecimal("5000"));
+        when(gastoRepo.findByOrigenAndReferenciaExterna(OrigenGasto.RESERVA_ESPACIO, "5"))
+                .thenReturn(Optional.of(gasto));
+
+        servicio.anularPorReservaExpirada("5");
+
+        assertThat(gasto.getEstado()).isEqualTo(EstadoGasto.PARCIAL);
+        verify(gastoRepo, never()).save(gasto);
+    }
+
+    @Test
     void anularPorReservaExpiradaSinCobroNoLanza() {
         when(gastoRepo.findByOrigenAndReferenciaExterna(OrigenGasto.RESERVA_ESPACIO, "999"))
                 .thenReturn(Optional.empty());

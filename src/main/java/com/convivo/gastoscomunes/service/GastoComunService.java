@@ -7,7 +7,6 @@ import com.convivo.gastoscomunes.domain.Pago;
 import com.convivo.gastoscomunes.dto.GastoComunRequest;
 import com.convivo.gastoscomunes.dto.PagoRequest;
 import com.convivo.gastoscomunes.exception.OperacionNoPermitidaException;
-import com.convivo.gastoscomunes.exception.ReglaNegocioException;
 import com.convivo.gastoscomunes.exception.RecursoNoEncontradoException;
 import com.convivo.gastoscomunes.factory.GastoManualFactory;
 import com.convivo.gastoscomunes.factory.GastoReservaFactory;
@@ -231,14 +230,14 @@ public class GastoComunService {
     public void anularPorReservaExpirada(String reservaId) {
         gastoComunRepository.findByOrigenAndReferenciaExterna(OrigenGasto.RESERVA_ESPACIO, reservaId)
                 .ifPresentOrElse(gasto -> {
-                    try {
-                        gasto.eliminar();
-                        gastoComunRepository.save(gasto);
-                    } catch (ReglaNegocioException ex) {
+                    if (gasto.getEstado() != EstadoGasto.PENDIENTE) {
                         log.error(
-                                "PAGO SOBRE RESERVA EXPIRADA: no se anula el cobro de la reserva {} (ya pagado). Requiere revisión manual.",
-                                reservaId);
+                                "COBRO EN ESTADO {} SOBRE RESERVA EXPIRADA: no se anula el cobro de la reserva {}. Requiere revisión manual.",
+                                gasto.getEstado(), reservaId);
+                        return;
                     }
+                    gasto.eliminar();
+                    gastoComunRepository.save(gasto);
                 }, () -> log.warn("No se encontró cobro para la reserva expirada {}", reservaId));
     }
 
