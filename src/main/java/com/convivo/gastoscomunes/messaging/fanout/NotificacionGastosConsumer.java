@@ -43,7 +43,9 @@ public class NotificacionGastosConsumer {
             return;
         }
 
-        boolean redelivered = message.getMessageProperties().isRedelivered();
+        // isRedelivered() devuelve Boolean (nullable): sin broker real detras,
+        // un Message armado a mano puede no traer el flag seteado.
+        boolean redelivered = Boolean.TRUE.equals(message.getMessageProperties().isRedelivered());
         EmailEnviado reserva = reclamar(ticketId, redelivered);
         if (reserva == null) {
             channel.basicAck(deliveryTag, false);
