@@ -91,6 +91,34 @@ public class RabbitMqConfig {
         return BindingBuilder.bind(gastosReservaCreadaDlq).to(gastosDlx).with(props.colaDeadLetter());
     }
 
+    private static final String RK_RESERVA_EXPIRADA = "reserva_expirada";
+    private static final String DLQ_RESERVA_EXPIRADA = "gastos_reserva_expirada_dlq";
+
+    @Bean
+    public Queue gastosReservaExpiradaQueue() {
+        return QueueBuilder.durable("gastos_reserva_expirada_queue")
+                .withArgument("x-dead-letter-exchange", props.dlx())
+                .withArgument("x-dead-letter-routing-key", DLQ_RESERVA_EXPIRADA)
+                .build();
+    }
+
+    @Bean
+    public Queue gastosReservaExpiradaDlq() {
+        return QueueBuilder.durable(DLQ_RESERVA_EXPIRADA).build();
+    }
+
+    @Bean
+    public Binding bindingReservaExpirada(Queue gastosReservaExpiradaQueue, TopicExchange espaciosEventsExchange) {
+        return BindingBuilder.bind(gastosReservaExpiradaQueue)
+                .to(espaciosEventsExchange)
+                .with(RK_RESERVA_EXPIRADA);
+    }
+
+    @Bean
+    public Binding bindingReservaExpiradaDlq(Queue gastosReservaExpiradaDlq, DirectExchange gastosDlx) {
+        return BindingBuilder.bind(gastosReservaExpiradaDlq).to(gastosDlx).with(DLQ_RESERVA_EXPIRADA);
+    }
+
     @Bean
     public FanoutExchange gastosPdfFanout() {
         return new FanoutExchange("gastos.pdf.fanout", true, false);

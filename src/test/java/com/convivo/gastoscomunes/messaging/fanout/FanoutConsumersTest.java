@@ -39,6 +39,7 @@ class FanoutConsumersTest {
 
     private PdfGastosConsumer pdfConsumer;
     private NotificacionGastosConsumer notificacionConsumer;
+    private EmailEnviadoRepository emailEnviadoRepository;
 
     @BeforeEach
     void setUp() {
@@ -46,9 +47,10 @@ class FanoutConsumersTest {
         gastoRepository = mock(GastoComunRepository.class);
         pdfGeneradorService = mock(PdfGastosGeneradorService.class);
         objectMapper = new ObjectMapper();
+        emailEnviadoRepository = mock(EmailEnviadoRepository.class);
 
         pdfConsumer = new PdfGastosConsumer(jobRepository, gastoRepository, pdfGeneradorService, objectMapper);
-        notificacionConsumer = new NotificacionGastosConsumer(objectMapper);
+        notificacionConsumer = new NotificacionGastosConsumer(objectMapper, emailEnviadoRepository);
     }
 
     @Test
