@@ -211,4 +211,55 @@ class GastoComunServiceTest {
         assertThat(nuevo.getOrigen()).isEqualTo(OrigenGasto.RESERVA_ESPACIO);
         assertThat(nuevo.getReferenciaExterna()).isEqualTo("res-2");
     }
+
+    @Test
+    void anularPorReservaExpiradaPasaCobroPendienteAEliminado() {
+        GastoComun gasto = GastoComun.crear(
+                COND, "A-1", "Reserva Espacio 3", new BigDecimal("15000"), OrigenGasto.RESERVA_ESPACIO, "3", null);
+        when(gastoRepo.findByOrigenAndReferenciaExterna(OrigenGasto.RESERVA_ESPACIO, "3"))
+                .thenReturn(Optional.of(gasto));
+
+        servicio.anularPorReservaExpirada("3");
+
+        assertThat(gasto.getEstado()).isEqualTo(EstadoGasto.ELIMINADO);
+        verify(gastoRepo).save(gasto);
+    }
+
+    @Test
+    void anularPorReservaExpiradaNoTocaCobroYaPagado() {
+        GastoComun gasto = GastoComun.crear(
+                COND, "A-1", "Reserva Espacio 4", new BigDecimal("15000"), OrigenGasto.RESERVA_ESPACIO, "4", null);
+        gasto.aplicarPago(new BigDecimal("15000"));
+        when(gastoRepo.findByOrigenAndReferenciaExterna(OrigenGasto.RESERVA_ESPACIO, "4"))
+                .thenReturn(Optional.of(gasto));
+
+        servicio.anularPorReservaExpirada("4");
+
+        assertThat(gasto.getEstado()).isEqualTo(EstadoGasto.PAGADO);
+        verify(gastoRepo, never()).save(gasto);
+    }
+
+    @Test
+    void anularPorReservaExpiradaNoTocaCobroConAbonoParcial() {
+        GastoComun gasto = GastoComun.crear(
+                COND, "A-1", "Reserva Espacio 5", new BigDecimal("15000"), OrigenGasto.RESERVA_ESPACIO, "5", null);
+        gasto.aplicarPago(new BigDecimal("5000"));
+        when(gastoRepo.findByOrigenAndReferenciaExterna(OrigenGasto.RESERVA_ESPACIO, "5"))
+                .thenReturn(Optional.of(gasto));
+
+        servicio.anularPorReservaExpirada("5");
+
+        assertThat(gasto.getEstado()).isEqualTo(EstadoGasto.PARCIAL);
+        verify(gastoRepo, never()).save(gasto);
+    }
+
+    @Test
+    void anularPorReservaExpiradaSinCobroNoLanza() {
+        when(gastoRepo.findByOrigenAndReferenciaExterna(OrigenGasto.RESERVA_ESPACIO, "999"))
+                .thenReturn(Optional.empty());
+
+        servicio.anularPorReservaExpirada("999");
+
+        verify(gastoRepo, never()).save(any());
+    }
 }
