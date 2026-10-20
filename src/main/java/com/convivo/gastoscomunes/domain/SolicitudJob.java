@@ -7,7 +7,9 @@ import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "solicitudes_jobs")
@@ -38,10 +40,12 @@ public class SolicitudJob {
     private String error;
 
     @CreationTimestamp
+    @JdbcTypeCode(SqlTypes.TIMESTAMP)
     @Column(name = "creado_en", nullable = false, updatable = false)
     private Instant creadoEn;
 
     @UpdateTimestamp
+    @JdbcTypeCode(SqlTypes.TIMESTAMP)
     @Column(name = "actualizado_en", nullable = false)
     private Instant actualizadoEn;
 
