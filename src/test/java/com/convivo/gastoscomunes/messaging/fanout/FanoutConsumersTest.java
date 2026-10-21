@@ -9,6 +9,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.convivo.gastoscomunes.config.MailProperties;
 import com.convivo.gastoscomunes.domain.GastoComun;
 import com.convivo.gastoscomunes.domain.OrigenGasto;
 import com.convivo.gastoscomunes.domain.SolicitudJob;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.data.domain.Pageable;
 
 class FanoutConsumersTest {
@@ -50,7 +52,8 @@ class FanoutConsumersTest {
         emailEnviadoRepository = mock(EmailEnviadoRepository.class);
 
         pdfConsumer = new PdfGastosConsumer(jobRepository, gastoRepository, pdfGeneradorService, objectMapper);
-        notificacionConsumer = new NotificacionGastosConsumer(objectMapper, emailEnviadoRepository);
+        notificacionConsumer = new NotificacionGastosConsumer(
+                objectMapper, emailEnviadoRepository, mock(JavaMailSender.class), new MailProperties(false, "no-reply@convivo.cl"));
     }
 
     @Test

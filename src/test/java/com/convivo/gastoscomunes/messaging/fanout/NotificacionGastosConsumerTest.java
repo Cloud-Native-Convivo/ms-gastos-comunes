@@ -9,6 +9,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.convivo.gastoscomunes.config.MailProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
@@ -22,6 +23,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 
 @ExtendWith(MockitoExtension.class)
 class NotificacionGastosConsumerTest {
@@ -36,11 +39,15 @@ class NotificacionGastosConsumerTest {
     @Mock
     private Channel canal;
 
+    @Mock
+    private JavaMailSender mailSender;
+
     private NotificacionGastosConsumer consumer;
 
     @BeforeEach
     void crear() {
-        consumer = new NotificacionGastosConsumer(new ObjectMapper(), repository);
+        consumer = new NotificacionGastosConsumer(
+                new ObjectMapper(), repository, mailSender, new MailProperties(false, "no-reply@convivo.cl"));
     }
 
     private static Message mensaje(String cuerpo, boolean redelivered) {
@@ -68,6 +75,22 @@ class NotificacionGastosConsumerTest {
                 .save(org.mockito.ArgumentMatchers.argThat(
                         e -> e.getTicketId().equals("t-1") && e.getEstado() == EstadoNotificacion.COMPLETADO));
         verify(canal).basicAck(TAG, false);
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void conMailHabilitadoEnviaElCorreoRealAlDestinatarioDelEvento() throws Exception {
+        NotificacionGastosConsumer consumerConMail = new NotificacionGastosConsumer(
+                new ObjectMapper(), repository, mailSender, new MailProperties(true, "no-reply@convivo.cl"));
+        when(repository.findById("t-1")).thenReturn(Optional.empty());
+        when(repository.saveAndFlush(any(EmailEnviado.class))).thenReturn(new EmailEnviado("t-1"));
+
+        consumerConMail.recibir(mensaje(JSON), canal);
+
+        verify(mailSender)
+                .send(org.mockito.ArgumentMatchers.argThat((SimpleMailMessage m) -> "no-reply@convivo.cl".equals(m.getFrom())
+                        && java.util.Arrays.asList(m.getTo()).contains("a@b.cl")
+                        && m.getSubject().contains("en proceso de generación")));
     }
 
     @Test

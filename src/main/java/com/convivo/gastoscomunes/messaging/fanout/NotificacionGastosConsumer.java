@@ -1,5 +1,6 @@
 package com.convivo.gastoscomunes.messaging.fanout;
 
+import com.convivo.gastoscomunes.config.MailProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
@@ -9,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -18,10 +21,18 @@ public class NotificacionGastosConsumer {
 
     private final ObjectMapper objectMapper;
     private final EmailEnviadoRepository emailEnviadoRepository;
+    private final JavaMailSender mailSender;
+    private final MailProperties mailProperties;
 
-    public NotificacionGastosConsumer(ObjectMapper objectMapper, EmailEnviadoRepository emailEnviadoRepository) {
+    public NotificacionGastosConsumer(
+            ObjectMapper objectMapper,
+            EmailEnviadoRepository emailEnviadoRepository,
+            JavaMailSender mailSender,
+            MailProperties mailProperties) {
         this.objectMapper = objectMapper;
         this.emailEnviadoRepository = emailEnviadoRepository;
+        this.mailSender = mailSender;
+        this.mailProperties = mailProperties;
     }
 
     @RabbitListener(queues = "#{@gastosNotificacionesEmailQueue.name}")
@@ -102,8 +113,29 @@ public class NotificacionGastosConsumer {
         String ticketId = root.path("ticket_id").asText();
         String email = root.has("email") ? root.path("email").asText() : "residente@convivo.cl";
         String unidadId = root.path("unidad_id").asText("301-A");
+        String mes = root.has("mes") ? root.path("mes").asText() : null;
 
-        log.info("Despachando notificacion por correo a '{}' para ticketId='{}' (Unidad '{}'). Comprobante generado en proceso.",
-                email, ticketId, unidadId);
+        if (mailProperties.habilitado()) {
+            mailSender.send(construirCorreo(email, ticketId, unidadId, mes));
+        }
+
+        log.info("Notificacion de email despachada a '{}' para ticketId='{}' (Unidad '{}').", email, ticketId, unidadId);
+    }
+
+    private SimpleMailMessage construirCorreo(String destinatario, String ticketId, String unidadId, String mes) {
+        SimpleMailMessage mensaje = new SimpleMailMessage();
+        mensaje.setFrom(mailProperties.remitente());
+        mensaje.setTo(destinatario);
+        mensaje.setSubject("Tu comprobante de gastos comunes está en proceso de generación");
+        mensaje.setText("""
+                Hola,
+
+                Tu solicitud de comprobante de gastos comunes de la unidad %s%s se encuentra en proceso de generación.
+
+                Podrás descargarlo desde el portal Convivo en unos minutos.
+
+                Ticket: %s
+                """.formatted(unidadId, mes == null || mes.isBlank() ? "" : " (" + mes + ")", ticketId));
+        return mensaje;
     }
 }

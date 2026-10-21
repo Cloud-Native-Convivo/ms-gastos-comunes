@@ -160,6 +160,12 @@
       <version>1.0.10</version>
     </dependency>
 
+    <!-- Notificación por correo (relay SMTP, ver NotificacionGastosConsumer) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-mail</artifactId>
+    </dependency>
+
     <!-- Tests -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
