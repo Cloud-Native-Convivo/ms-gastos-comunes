@@ -11,6 +11,20 @@ spring:
     import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
   jackson:
     default-property-inclusion: non_null
+  # Host default inocuo: la autoconfiguracion de JavaMailSender solo crea el
+  # bean si spring.mail.host existe. Sin esto, el perfil local (que no envia
+  # correo real, ver convivo.mail.habilitado) no levanta el contexto porque
+  # NotificacionGastosConsumer no encuentra el bean para inyectar.
+  # application-aws.yml lo sobreescribe con el host real de Gmail.
+  mail:
+    host: ${MAIL_HOST:localhost}
+  # Las columnas TIMESTAMP de Oracle no guardan zona: sin esto, los Instant
+  # se convierten con la zona de la JVM y difieren entre instancias.
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
 
 server:
   port: ${SERVER_PORT:8083}
@@ -49,6 +63,13 @@ convivo:
     claim-de-rol: ${CLAIM_DE_ROL:roles}
     claim-separador: ${CLAIM_SEPARADOR:,}
     claim-map: {}
+
+  # --- Notificación por correo (ver NotificacionGastosConsumer) ---
+  # Deshabilitado por defecto: perfil local solo loguea, nunca manda correo
+  # real (sin credenciales SMTP en dev). Se activa en application-aws.yml.
+  mail:
+    habilitado: ${MAIL_HABILITADO:false}
+    remitente: ${MAIL_FROM:no-reply@convivo.cl}
 
   # --- RabbitMQ / Amazon MQ: topología Outbox/Inbox (ver RabbitMqConfig) ---
   mensajeria:

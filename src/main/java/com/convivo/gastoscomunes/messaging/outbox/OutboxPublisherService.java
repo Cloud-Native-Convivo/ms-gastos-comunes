@@ -23,6 +23,15 @@ public class OutboxPublisherService {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * Serializa el payload y lo guarda como evento pendiente en la tabla Outbox.
+     *
+     * @param exchange exchange de destino
+     * @param routingKey routing key de destino
+     * @param tipo nombre lógico del evento
+     * @param payload objeto a serializar como JSON
+     * @throws IllegalStateException si el payload no se puede serializar
+     */
     @Transactional
     public void encolar(String exchange, String routingKey, String tipo, Object payload) {
         try {

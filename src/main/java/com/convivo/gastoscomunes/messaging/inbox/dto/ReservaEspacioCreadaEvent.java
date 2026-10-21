@@ -29,6 +29,18 @@ public record ReservaEspacioCreadaEvent(
         @JsonAlias({"monto", "monto_total", "montoTotal"}) BigDecimal monto,
         @JsonDeserialize(using = FlexibleInstantDeserializer.class) Instant timestamp) {
 
+    // Largos y precisión espejo de V1__init.sql (ver AGENTS.md §5.1): este
+    // evento no pasa por Bean Validation, así que se validan aquí para que un
+    // valor que Oracle rechazaría sea INVALIDO (compensación) y no un error
+    // de base de datos que agota reintentos y termina en la DLQ.
+    private static final int MAX_EVENT_ID = 64;      // inbox_eventos.event_id
+    private static final int MAX_TIPO = 80;          // inbox_eventos.tipo
+    private static final int MAX_RESERVA_ID = 100;   // gastos_comunes.referencia_externa
+    private static final int MAX_UNIDAD_ID = 64;     // gastos_comunes.unidad_id
+    private static final int MAX_CONCEPTO = 200;     // gastos_comunes.concepto
+    private static final int MONTO_ENTEROS = 10;     // NUMBER(12,2)
+    private static final int MONTO_DECIMALES = 2;
+
     /**
      * Validación de negocio mínima que este microservicio puede hacer sin
      * llamadas síncronas a otros dominios (unidad/residente existentes se
@@ -36,15 +48,38 @@ public record ReservaEspacioCreadaEvent(
      * de alcance de esta iteración, ver README).
      */
     public boolean esValido() {
-        return eventId != null && !eventId.isBlank()
-                && reservaId != null && !reservaId.isBlank()
-                && unidadId != null && !unidadId.isBlank()
+        return textoValido(eventId, MAX_EVENT_ID)
+                && (tipo == null || tipo.length() <= MAX_TIPO)
+                && textoValido(reservaId, MAX_RESERVA_ID)
+                && textoValido(unidadId, MAX_UNIDAD_ID)
                 && usuarioSub != null && !usuarioSub.isBlank()
-                && monto != null && monto.compareTo(BigDecimal.ZERO) >= 0;
+                && montoValido();
     }
 
+    /**
+     * Concepto a persistir. Se recorta en vez de invalidar el evento: un
+     * texto descriptivo largo no justifica cancelar una reserva válida.
+     */
     public String conceptoOPorDefecto() {
-        return (concepto == null || concepto.isBlank()) ? "Reserva Espacio" : concepto;
+        if (concepto == null || concepto.isBlank()) {
+            return "Reserva Espacio";
+        }
+        return concepto.codePointCount(0, concepto.length()) <= MAX_CONCEPTO
+                ? concepto
+                : concepto.substring(0, concepto.offsetByCodePoints(0, MAX_CONCEPTO));
+    }
+
+    private static boolean textoValido(String valor, int largoMaximo) {
+        return valor != null && !valor.isBlank() && valor.length() <= largoMaximo;
+    }
+
+    private boolean montoValido() {
+        if (monto == null || monto.signum() < 0) {
+            return false;
+        }
+        BigDecimal normalizado = monto.stripTrailingZeros();
+        return normalizado.scale() <= MONTO_DECIMALES
+                && normalizado.precision() - normalizado.scale() <= MONTO_ENTEROS;
     }
 }
 

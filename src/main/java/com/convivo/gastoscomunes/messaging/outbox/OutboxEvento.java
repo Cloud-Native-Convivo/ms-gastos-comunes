@@ -66,6 +66,15 @@ public class OutboxEvento {
         // JPA
     }
 
+    /**
+     * Crea un evento pendiente de publicar, con {@code eventId} UUID nuevo.
+     *
+     * @param exchange exchange de destino
+     * @param routingKey routing key de destino
+     * @param tipo nombre lógico del evento (ej. {@code gasto_fallido})
+     * @param payloadJson cuerpo del mensaje ya serializado a JSON
+     * @return evento en estado {@code PENDIENTE} con 0 intentos
+     */
     public static OutboxEvento crear(String exchange, String routingKey, String tipo, String payloadJson) {
         OutboxEvento evento = new OutboxEvento();
         evento.eventId = UUID.randomUUID().toString();
@@ -78,11 +87,18 @@ public class OutboxEvento {
         return evento;
     }
 
+    /** Marca el evento como publicado y registra la fecha de publicación. */
     public void marcarPublicado() {
         this.estado = EstadoOutbox.PUBLICADO;
         this.fechaPublicacion = Instant.now();
     }
 
+    /**
+     * Suma un intento fallido; al alcanzar el máximo, el evento pasa a
+     * {@code FALLIDO} y el relay deja de reintentarlo.
+     *
+     * @param maxIntentos intentos permitidos antes de darlo por fallido
+     */
     public void registrarIntentoFallido(int maxIntentos) {
         this.intentos++;
         if (this.intentos >= maxIntentos) {

@@ -1,7 +1,7 @@
 # ms-gastos-comunes
 
 Microservicio de dominio **Gastos Comunes** de Convivo: cobros/cuotas y
-pagos por unidad. Java 21 + Spring Boot 3 + Oracle, detrás del BFF
+pagos por unidad. Java 25 + Spring Boot 4 + Oracle, detrás del BFF
 (`GASTOS_COMUNES_URL`, puerto **8083**) y consumidor asíncrono de eventos
 de reservas de espacios comunes vía RabbitMQ (patrón Outbox/Inbox).
 
@@ -31,7 +31,7 @@ definieron el alcance:
    `reserva_espacio_creada` desde `gastos_reserva_creada_queue`
    (idempotente vía tabla `inbox_eventos`), crea el gasto común
    correspondiente, y ante datos inválidos publica `gasto_fallido` (vía
-   su propio Outbox) hacia `espacios_compensacion_queue` para que
+   su propio Outbox) hacia la cola `gasto_fallido` para que
    ms-espacios-comunes compense la reserva. Fallos técnicos persistentes
    terminan en `gastos_reserva_creada_dlq` (Dead Letter Queue) tras
    reintentos con backoff — ver `RabbitMqConfig`.
@@ -73,7 +73,7 @@ Swagger UI: `/swagger-ui.html` · OpenAPI JSON: `/v3/api-docs`.
 
 ## Ejecutar en local (perfil `local`, por defecto)
 
-No requiere Oracle ni Amazon MQ reales: usa H2 en memoria y el listener de
+No requiere Oracle ni RabbitMQ reales: usa H2 en memoria y el listener de
 RabbitMQ arranca desactivado (`RABBITMQ_AUTOSTART=false`) para que el
 servicio levante igual sin un broker corriendo.
 
@@ -164,7 +164,10 @@ paralelo a este trabajo:
   tipo `Rol` y el filtro de roles solo incluían
   `administrador | conserje | comite`, lo que descartaba silenciosamente
   a `propietario` y `residente` — los roles que precisamente necesitan
-  consultar/pagar sus propios gastos comunes. Se agregaron ambos roles.
+  consultar sus propios gastos comunes. Se agregaron ambos roles.
+  Registrar pagos (`POST /{id}/pagos`) queda solo para
+  `administrador`/`comite`: un pago autodeclarado por el residente
+  saldaría su propia deuda sin verificación externa.
 
 Esos archivos del BFF se entregan junto con este microservicio.
 
@@ -184,3 +187,46 @@ Esos archivos del BFF se entregan junto con este microservicio.
   administración ya los marca como "Próximamente"); el modelo de datos
   (`estado`, `saldo_pendiente`) está pensado para soportarlos después sin
   romper compatibilidad.
+
+## Prevención de fallos en CI y protocolo de PRs
+
+Para evitar que los pipelines y checks automáticos fallen en pull requests, el proyecto cuenta con mecanismos nativos de prevención:
+
+### 1. Verificación local pre-push (100% Maven / Java)
+Antes de abrir un PR o hacer push a `develop`, corre:
+```bash
+./mvnw clean verify
+```
+(En Windows PowerShell/CMD: `.\mvnw.cmd clean verify`).
+
+Esto valida de forma nativa:
+- **Compilación estricta y tests**: ejecuta los 114 tests unitarios y de integración.
+- **Enforcer de entorno**: `maven-enforcer-plugin` valida JDK 25 y Apache Maven >= 3.9.0.
+- **Cobertura de código**: `jacoco-maven-plugin:check` exige un mínimo del **60%** de cobertura en líneas. Si agregas nueva lógica sin tests suficientes, el comando falla localmente antes de subir cambios a GitHub.
+- **Validador de mensajes de commit**: `GitCommitConventionTest` valida el formato Gitmoji y Conventional Commits. Puedes verificar el mensaje del último commit (`HEAD`) con:
+  ```bash
+  ./mvnw test -Dtest=GitCommitConventionTest -Dcheck.commit=true
+  ```
+
+### 2. Formato estricto de títulos de PR (Gitmoji)
+El workflow `pr-quality.yml` valida que los títulos de los PRs comiencen con Gitmoji (shortcode o unicode) y sigan Conventional Commits (`^(?::\w+:|[^\w\s:]\S*)\s(\w*)(?:\(([\w$.\-*/ ]*)\))?!?:\s(.*)$`).
+
+Ejemplos válidos:
+- `:sparkles: feat: nuevo prorrateo de reserva` o `✨ feat: nuevo prorrateo de reserva`
+- `:bug: fix(cobros): corregir cálculo de intereses` o `🐛 fix(cobros): corregir cálculo de intereses`
+- `:lock: fix(deps): mitigar cve crítico`
+- `:memo: docs: actualizar runbook de despliegue`
+
+### 3. Excepciones de seguridad temporales (`.trivyignore`)
+El job `docker` en `ci.yml` ejecuta Trivy y falla ante vulnerabilidades `CRITICAL`. Si una vulnerabilidad pertenece a la imagen base de Temurin/Alpine y no existe parche upstream disponible de forma inmediata:
+1. Registra el CVE en `.trivyignore` siguiendo el formato:
+   ```text
+   CVE-YYYY-XXXXX # [EXPIRACION YYYY-MM-DD] [JUSTIFICACION: motivo tecnico]
+   ```
+2. Toda excepción requiere fecha de expiración y justificación técnica.
+
+### 4. Automatizaciones en GitHub Actions
+- **Caché Docker Buildx (GHA)**: `ci.yml` utiliza `cache-from: type=gha` y `cache-to: type=gha,mode=max` para acelerar builds en runners de GitHub.
+- **Dependabot Auto-Merge**: `dependabot-auto.yml` aprueba y mergea automáticamente con squash los PRs de parches y versiones menores seguros de Dependabot una vez que todos los checks de CI pasen en verde.
+- **Bloqueo de versiones mayores**: `.github/dependabot.yml` ignora `semver-major` en `spring-boot`, `spring-cloud` y `springdoc` para evitar PRs aislados que quiebran la compilación.
+

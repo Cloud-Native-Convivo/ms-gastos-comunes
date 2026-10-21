@@ -52,6 +52,21 @@ services:
       oracle-gastos:
         condition: service_healthy
 
+  scanner:
+    image: sonarsource/sonar-scanner-cli:latest
+    container_name: convivo-gastos-scanner
+    profiles:
+      - tools
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - SONAR_HOST_URL=http://sonarqube:9000
+      - SONAR_TOKEN=${SONAR_TOKEN:-}
+    volumes:
+      - ./:/usr/src
+    networks:
+      - convivo-network
 volumes:
   oracle_gastos_data:
 
@@ -59,3 +74,4 @@ networks:
   convivo-network:
     external: true
     name: convivo-network
+

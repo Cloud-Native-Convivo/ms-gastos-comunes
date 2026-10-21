@@ -77,4 +77,51 @@ class ReservaCreadaInboxServiceTest {
         verify(gastoComunService, times(1))
                 .crearDesdeReserva(eq("unidad-A302"), eq("Reserva Espacio"), eq(new BigDecimal("15000")), eq("reserva-1"));
     }
+
+    // Valores límite contra las columnas Oracle: unidad_id VARCHAR2(64), monto NUMBER(12,2).
+    @Test
+    void marcaInvalidoCuandoUnidadIdExcedeLaColumna() {
+        ReservaEspacioCreadaEvent invalido = evento("x".repeat(65), "Reserva Espacio", new BigDecimal("15000"));
+        when(inboxRepository.existsById("evt-3")).thenReturn(false);
+
+        assertThat(service.procesar(invalido)).isEqualTo(ResultadoProcesamiento.INVALIDO);
+        verify(gastoComunService, never()).crearDesdeReserva(any(), any(), any(), any());
+    }
+
+    @Test
+    void marcaInvalidoCuandoMontoNoCabeEnNumber12_2() {
+        when(inboxRepository.existsById("evt-3")).thenReturn(false);
+
+        assertThat(service.procesar(evento("unidad-A302", null, new BigDecimal("15000.005"))))
+                .isEqualTo(ResultadoProcesamiento.INVALIDO);
+        assertThat(service.procesar(evento("unidad-A302", null, new BigDecimal("12345678901"))))
+                .isEqualTo(ResultadoProcesamiento.INVALIDO);
+        verify(gastoComunService, never()).crearDesdeReserva(any(), any(), any(), any());
+    }
+
+    @Test
+    void aceptaValoresEnElLimiteExactoDeLasColumnas() {
+        when(inboxRepository.existsById("evt-3")).thenReturn(false);
+
+        assertThat(service.procesar(evento("x".repeat(64), null, new BigDecimal("9999999999.99"))))
+                .isEqualTo(ResultadoProcesamiento.PROCESADO);
+    }
+
+    @Test
+    void recortaConceptoLargoEnVezDeInvalidarLaReserva() {
+        when(inboxRepository.existsById("evt-3")).thenReturn(false);
+
+        ResultadoProcesamiento resultado =
+                service.procesar(evento("unidad-A302", "ñ".repeat(250), new BigDecimal("15000")));
+
+        assertThat(resultado).isEqualTo(ResultadoProcesamiento.PROCESADO);
+        verify(gastoComunService)
+                .crearDesdeReserva(eq("unidad-A302"), eq("ñ".repeat(200)), eq(new BigDecimal("15000")), eq("reserva-3"));
+    }
+
+    private ReservaEspacioCreadaEvent evento(String unidadId, String concepto, BigDecimal monto) {
+        return new ReservaEspacioCreadaEvent(
+                "evt-3", "reserva_espacio_creada", "reserva-3", "espacio-1", unidadId, "usuario-sub-1",
+                concepto, monto, Instant.now());
+    }
 }

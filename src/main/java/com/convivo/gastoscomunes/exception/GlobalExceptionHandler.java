@@ -50,8 +50,13 @@ public class GlobalExceptionHandler {
         return responder(HttpStatus.FORBIDDEN, "FORBIDDEN", "No tiene permisos para esta operación", req);
     }
 
-    @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<ErrorResponse> manejarEstadoInvalido(IllegalStateException ex, HttpServletRequest req) {
+    /**
+     * Solo reglas de dominio van a 409 con su mensaje. Las fallas técnicas
+     * (ej. {@code IllegalStateException} de serialización) caen en
+     * {@link #manejarGenerica}: 500 sin exponer el mensaje interno.
+     */
+    @ExceptionHandler(ReglaNegocioException.class)
+    public ResponseEntity<ErrorResponse> manejarReglaNegocio(ReglaNegocioException ex, HttpServletRequest req) {
         return responder(HttpStatus.CONFLICT, "CONFLICT", ex.getMessage(), req);
     }
 

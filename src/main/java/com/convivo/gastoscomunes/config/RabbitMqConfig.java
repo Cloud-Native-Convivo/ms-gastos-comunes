@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
+import org.springframework.amqp.core.FanoutExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
@@ -24,8 +25,7 @@ import org.springframework.amqp.rabbit.config.StatelessRetryOperationsIntercepto
 import org.springframework.core.retry.RetryPolicy;
 
 /**
- * Declara la topología RabbitMQ (Amazon MQ) que consume/publica
- * ms-gastos-comunes:
+ * Declara la topología RabbitMQ que consume/publica ms-gastos-comunes:
  *
  * <ul>
  *   <li>Consume {@code reserva_espacio_creada} desde el exchange
@@ -35,8 +35,8 @@ import org.springframework.core.retry.RetryPolicy;
  *       Letter Queue tras agotar reintentos (sin requeue infinito).</li>
  *   <li>Ante fallos de negocio (ej. unidad inexistente), publica
  *       {@code gasto_fallido} de vuelta al mismo exchange, enrutado hacia
- *       {@code espacios_compensacion_queue} (consumida por
- *       ms-espacios-comunes para compensar la saga).</li>
+ *       la cola {@code gasto_fallido} (consumida por ms-espacios-comunes
+ *       para compensar la saga).</li>
  * </ul>
  */
 @Configuration
@@ -74,6 +74,12 @@ public class RabbitMqConfig {
     }
 
     @Bean
+    public Queue gastosComandosQueue() {
+        return QueueBuilder.durable("gastos_comandos_queue").build();
+    }
+
+
+    @Bean
     public Binding bindingReservaCreada(Queue gastosReservaCreadaQueue, TopicExchange espaciosEventsExchange) {
         return BindingBuilder.bind(gastosReservaCreadaQueue)
                 .to(espaciosEventsExchange)
@@ -83,6 +89,65 @@ public class RabbitMqConfig {
     @Bean
     public Binding bindingDeadLetter(Queue gastosReservaCreadaDlq, DirectExchange gastosDlx) {
         return BindingBuilder.bind(gastosReservaCreadaDlq).to(gastosDlx).with(props.colaDeadLetter());
+    }
+
+    private static final String RK_RESERVA_EXPIRADA = "reserva_expirada";
+    private static final String DLQ_RESERVA_EXPIRADA = "gastos_reserva_expirada_dlq";
+
+    @Bean
+    public Queue gastosReservaExpiradaQueue() {
+        return QueueBuilder.durable("gastos_reserva_expirada_queue")
+                .withArgument("x-dead-letter-exchange", props.dlx())
+                .withArgument("x-dead-letter-routing-key", DLQ_RESERVA_EXPIRADA)
+                .build();
+    }
+
+    @Bean
+    public Queue gastosReservaExpiradaDlq() {
+        return QueueBuilder.durable(DLQ_RESERVA_EXPIRADA).build();
+    }
+
+    @Bean
+    public Binding bindingReservaExpirada(Queue gastosReservaExpiradaQueue, TopicExchange espaciosEventsExchange) {
+        return BindingBuilder.bind(gastosReservaExpiradaQueue)
+                .to(espaciosEventsExchange)
+                .with(RK_RESERVA_EXPIRADA);
+    }
+
+    @Bean
+    public Binding bindingReservaExpiradaDlq(Queue gastosReservaExpiradaDlq, DirectExchange gastosDlx) {
+        return BindingBuilder.bind(gastosReservaExpiradaDlq).to(gastosDlx).with(DLQ_RESERVA_EXPIRADA);
+    }
+
+    @Bean
+    public FanoutExchange gastosPdfFanout() {
+        return new FanoutExchange("gastos.pdf.fanout", true, false);
+    }
+
+    @Bean
+    public Queue gastosPdfGeneracionQueue() {
+        return QueueBuilder.durable("gastos_pdf_generacion_queue")
+                .withArgument("x-dead-letter-exchange", props.dlx())
+                .withArgument("x-dead-letter-routing-key", props.colaDeadLetter())
+                .build();
+    }
+
+    @Bean
+    public Queue gastosNotificacionesEmailQueue() {
+        return QueueBuilder.durable("gastos_notificaciones_email_queue")
+                .withArgument("x-dead-letter-exchange", props.dlx())
+                .withArgument("x-dead-letter-routing-key", props.colaDeadLetter())
+                .build();
+    }
+
+    @Bean
+    public Binding bindingGastosPdfGeneracion(Queue gastosPdfGeneracionQueue, FanoutExchange gastosPdfFanout) {
+        return BindingBuilder.bind(gastosPdfGeneracionQueue).to(gastosPdfFanout);
+    }
+
+    @Bean
+    public Binding bindingGastosNotificacionesEmail(Queue gastosNotificacionesEmailQueue, FanoutExchange gastosPdfFanout) {
+        return BindingBuilder.bind(gastosNotificacionesEmailQueue).to(gastosPdfFanout);
     }
 
     /**

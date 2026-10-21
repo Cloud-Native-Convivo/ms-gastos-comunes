@@ -32,6 +32,9 @@ COPY --from=build /app/target/ms-gastos-comunes.jar app.jar
 EXPOSE 8083
 
 ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+# La imagen nunca arranca en 'local' (sin validación JWT) por omisión: application.yml
+# cae a 'local' si la variable falta, y eso desactiva toda la autenticación.
+ENV SPRING_PROFILES_ACTIVE=aws
 
 # Verifica que Spring Boot esté vivo
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \

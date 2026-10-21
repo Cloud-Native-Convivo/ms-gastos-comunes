@@ -1,5 +1,6 @@
 package com.convivo.gastoscomunes.domain;
 
+import com.convivo.gastoscomunes.exception.ReglaNegocioException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -12,6 +13,7 @@ import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLRestriction;
@@ -30,9 +32,15 @@ import org.hibernate.type.SqlTypes;
 @SQLRestriction("estado != 'ELIMINADO'")
 public class GastoComun {
 
+    public static final ZoneId ZONA_CHILE = ZoneId.of("America/Santiago");
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** String libre sin FK, mismo patron que unidadId: el condominio vive en ms-condominios. */
+    @Column(name = "condominio_id", nullable = false, length = 64)
+    private String condominioId;
 
     @Column(name = "unidad_id", nullable = false, length = 64)
     private String unidadId;
@@ -80,6 +88,7 @@ public class GastoComun {
     }
 
     public static GastoComun crear(
+            String condominioId,
             String unidadId,
             String concepto,
             BigDecimal monto,
@@ -87,6 +96,7 @@ public class GastoComun {
             String referenciaExterna,
             LocalDate fechaVencimiento) {
         GastoComun gasto = new GastoComun();
+        gasto.condominioId = condominioId;
         gasto.unidadId = unidadId;
         gasto.concepto = concepto;
         gasto.monto = monto;
@@ -98,14 +108,25 @@ public class GastoComun {
         return gasto;
     }
 
-    /** Aplica un abono/pago al saldo pendiente y recalcula el estado. */
+    /**
+     * Aplica un abono/pago al saldo pendiente y recalcula el estado. Rechaza
+     * pagos sobre gastos ya pagados y pagos que excedan el saldo, para que la
+     * suma de {@code Pago} registrados nunca supere el monto del gasto.
+     */
     public void aplicarPago(BigDecimal montoPago) {
         if (estado == EstadoGasto.ELIMINADO) {
-            throw new IllegalStateException("No se puede pagar un gasto eliminado");
+            throw new ReglaNegocioException("No se puede pagar un gasto eliminado");
+        }
+        if (estado == EstadoGasto.PAGADO) {
+            throw new ReglaNegocioException("El gasto ya está pagado");
+        }
+        if (montoPago.compareTo(saldoPendiente) > 0) {
+            throw new ReglaNegocioException(
+                    "El pago (" + montoPago.toPlainString() + ") excede el saldo pendiente ("
+                            + saldoPendiente.toPlainString() + ")");
         }
         this.saldoPendiente = this.saldoPendiente.subtract(montoPago);
-        if (this.saldoPendiente.compareTo(BigDecimal.ZERO) <= 0) {
-            this.saldoPendiente = BigDecimal.ZERO;
+        if (this.saldoPendiente.signum() == 0) {
             this.estado = EstadoGasto.PAGADO;
         } else {
             this.estado = EstadoGasto.PARCIAL;
@@ -119,7 +140,7 @@ public class GastoComun {
      */
     public void actualizar(String concepto, BigDecimal monto, LocalDate fechaVencimiento) {
         if (estado == EstadoGasto.ELIMINADO) {
-            throw new IllegalStateException("No se puede modificar un gasto eliminado");
+            throw new ReglaNegocioException("No se puede modificar un gasto eliminado");
         }
         BigDecimal pagado = this.monto.subtract(this.saldoPendiente);
         this.concepto = concepto;
@@ -140,16 +161,20 @@ public class GastoComun {
     /** Borrado lógico: deja de listarse/consultarse (ver GastoComunService.buscarOLanzar). */
     public void eliminar() {
         if (estado == EstadoGasto.PAGADO) {
-            throw new IllegalStateException("No se puede eliminar un gasto ya pagado");
+            throw new ReglaNegocioException("No se puede eliminar un gasto ya pagado");
         }
         if (estado == EstadoGasto.ELIMINADO) {
-            throw new IllegalStateException("El gasto ya está eliminado");
+            throw new ReglaNegocioException("El gasto ya está eliminado");
         }
         this.estado = EstadoGasto.ELIMINADO;
     }
 
     public Long getId() {
         return id;
+    }
+
+    public String getCondominioId() {
+        return condominioId;
     }
 
     public String getUnidadId() {
@@ -180,7 +205,7 @@ public class GastoComun {
      */
     public EstadoGasto getEstadoEfectivo() {
         boolean puedeVencer = estado == EstadoGasto.PENDIENTE || estado == EstadoGasto.PARCIAL;
-        if (puedeVencer && fechaVencimiento != null && fechaVencimiento.isBefore(LocalDate.now())) {
+        if (puedeVencer && fechaVencimiento != null && fechaVencimiento.isBefore(LocalDate.now(ZONA_CHILE))) {
             return EstadoGasto.VENCIDO;
         }
         return estado;

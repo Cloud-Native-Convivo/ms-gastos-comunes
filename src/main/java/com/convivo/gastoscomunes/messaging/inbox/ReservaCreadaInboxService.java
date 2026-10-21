@@ -20,6 +20,15 @@ public class ReservaCreadaInboxService {
         this.gastoComunService = gastoComunService;
     }
 
+    /**
+     * Registra el evento en la tabla Inbox y crea el gasto común asociado,
+     * todo en la misma transacción.
+     *
+     * @param evento evento {@code reserva_espacio_creada} ya deserializado
+     * @return {@code DUPLICADO} si el {@code eventId} ya fue procesado,
+     *     {@code INVALIDO} si faltan datos requeridos (requiere compensación),
+     *     {@code PROCESADO} si se creó el gasto
+     */
     @Transactional
     public ResultadoProcesamiento procesar(ReservaEspacioCreadaEvent evento) {
         if (inboxRepository.existsById(evento.eventId())) {

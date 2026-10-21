@@ -35,7 +35,7 @@ jobs:
       # En PRs desde forks el token es de solo lectura: se omiten los reportes.
       - name: Resultados de tests
         if: always() && github.event.pull_request.head.repo.full_name == github.repository
-        uses: mikepenz/action-junit-report@a9170d5795813c01ab4901ffb045b52bab4ab09d # v6.5.0
+        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6.6.1
         with:
           report_paths: target/surefire-reports/*.xml
           check_name: Resultados de tests
@@ -76,15 +76,20 @@ jobs:
           push: false
           load: true
           tags: ms-gastos-comunes:pr
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Escaneo de imagen (resumen)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
+          # trivy-action v0.36.0 trae Trivy 0.70.0 por defecto; Dependabot no actualiza este valor
+          version: v0.74.0
           image-ref: ms-gastos-comunes:pr
           format: table
           output: trivy-resumen.txt
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          trivyignores: .trivyignore
           exit-code: "0"
 
       - name: Publicar resumen de vulnerabilidades
@@ -100,8 +105,11 @@ jobs:
       - name: Escaneo de imagen (falla en CRITICAL)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
+          # trivy-action v0.36.0 trae Trivy 0.70.0 por defecto; Dependabot no actualiza este valor
+          version: v0.74.0
           image-ref: ms-gastos-comunes:pr
           format: table
           severity: CRITICAL
           ignore-unfixed: true
+          trivyignores: .trivyignore
           exit-code: "1"
