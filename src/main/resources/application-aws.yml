@@ -45,6 +45,25 @@ spring:
         auto-startup: true
         prefetch: ${RABBITMQ_PREFETCH:10}
 
+  # Relay SMTP vía Gmail (cuenta con App Password en AWS Secrets Manager,
+  # nunca en claro). Límite de envío de Gmail (~500/día cuenta personal):
+  # suficiente para el volumen actual, revisar si el envío escala.
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+convivo:
+  mail:
+    habilitado: ${MAIL_HABILITADO:true}
+
 eureka:
   client:
     enabled: ${EUREKA_ENABLED:true}
