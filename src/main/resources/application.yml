@@ -64,6 +64,13 @@ convivo:
     claim-separador: ${CLAIM_SEPARADOR:,}
     claim-map: {}
 
+  # --- Amazon Cognito (residentes): mismas variables que el BFF ---
+  # Vacias = no se aceptan tokens de Cognito (solo Entra ID).
+  cognito:
+    issuer: ${COGNITO_ISSUER:}
+    jwks-uri: ${COGNITO_JWKS_URI:}
+    client-id: ${COGNITO_APP_CLIENT_ID:}
+
   # --- Notificación por correo (ver NotificacionGastosConsumer) ---
   # Deshabilitado por defecto: perfil local solo loguea, nunca manda correo
   # real (sin credenciales SMTP en dev). Se activa en application-aws.yml.
