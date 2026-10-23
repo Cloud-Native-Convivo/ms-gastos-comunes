@@ -4,15 +4,20 @@ import com.convivo.gastoscomunes.config.MailProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.MailPreparationException;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.HtmlUtils;
 
 @Component
 public class NotificacionGastosConsumer {
@@ -122,12 +127,23 @@ public class NotificacionGastosConsumer {
         log.info("Notificacion de email despachada a '{}' para ticketId='{}' (Unidad '{}').", email, ticketId, unidadId);
     }
 
-    private SimpleMailMessage construirCorreo(String destinatario, String ticketId, String unidadId, String mes) {
-        SimpleMailMessage mensaje = new SimpleMailMessage();
-        mensaje.setFrom(mailProperties.remitente());
-        mensaje.setTo(destinatario);
-        mensaje.setSubject("Tu comprobante de gastos comunes está en proceso de generación");
-        mensaje.setText("""
+    private MimeMessage construirCorreo(String destinatario, String ticketId, String unidadId, String mes) {
+        String periodo = mes == null || mes.isBlank() ? "" : mes;
+        try {
+            MimeMessage mensaje = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mensaje, true, "UTF-8");
+            helper.setFrom(mailProperties.remitente(), "Convivo");
+            helper.setTo(destinatario);
+            helper.setSubject("Tu comprobante de gastos comunes está en proceso de generación");
+            helper.setText(textoPlano(unidadId, periodo, ticketId), html(unidadId, periodo, ticketId));
+            return mensaje;
+        } catch (MessagingException | UnsupportedEncodingException ex) {
+            throw new MailPreparationException("No se pudo armar el correo de notificación", ex);
+        }
+    }
+
+    private static String textoPlano(String unidadId, String periodo, String ticketId) {
+        return """
                 Hola,
 
                 Tu solicitud de comprobante de gastos comunes de la unidad %s%s se encuentra en proceso de generación.
@@ -135,7 +151,47 @@ public class NotificacionGastosConsumer {
                 Podrás descargarlo desde el portal Convivo en unos minutos.
 
                 Ticket: %s
-                """.formatted(unidadId, mes == null || mes.isBlank() ? "" : " (" + mes + ")", ticketId));
-        return mensaje;
+
+                Equipo Convivo
+                """.formatted(unidadId, periodo.isEmpty() ? "" : " (" + periodo + ")", ticketId);
+    }
+
+    private static String html(String unidadId, String periodo, String ticketId) {
+        String filas = fila("Unidad", unidadId)
+                + (periodo.isEmpty() ? "" : fila("Período", periodo))
+                + fila("Ticket", ticketId);
+        return """
+                <!DOCTYPE html>
+                <html lang="es">
+                <body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+                <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 12px;">
+                <tr><td align="center">
+                  <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%%;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;">
+                    <tr><td style="background:#0f766e;padding:24px 32px;border-radius:12px 12px 0 0;">
+                      <span style="font-family:Georgia,'Times New Roman',serif;font-size:26px;color:#ffffff;">Convivo</span>
+                    </td></tr>
+                    <tr><td style="padding:32px;">
+                      <h1 style="margin:0 0 16px;font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:normal;color:#0f172a;">Tu comprobante está en proceso</h1>
+                      <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#334155;">Hola,</p>
+                      <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#334155;">Tu solicitud de comprobante de gastos comunes se encuentra en proceso de generación. Podrás descargarlo desde el portal Convivo en unos minutos.</p>
+                      <table role="presentation" width="100%%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 16px;">
+                        %s
+                      </table>
+                    </td></tr>
+                    <tr><td style="padding:16px 32px 24px;border-top:1px solid #e2e8f0;font-size:12px;line-height:1.5;color:#64748b;">
+                      Equipo Convivo &middot; Este es un mensaje automático, por favor no respondas a este correo.
+                    </td></tr>
+                  </table>
+                </td></tr>
+                </table>
+                </body>
+                </html>
+                """.formatted(filas);
+    }
+
+    private static String fila(String etiqueta, String valor) {
+        return "<tr><td style=\"padding:8px 0;font-size:13px;color:#64748b;width:90px;\">" + etiqueta
+                + "</td><td style=\"padding:8px 0;font-size:14px;color:#0f172a;font-weight:bold;\">"
+                + HtmlUtils.htmlEscape(valor) + "</td></tr>";
     }
 }
