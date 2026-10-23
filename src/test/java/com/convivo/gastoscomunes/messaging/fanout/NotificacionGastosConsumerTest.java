@@ -1,6 +1,7 @@
 package com.convivo.gastoscomunes.messaging.fanout;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -13,17 +14,21 @@ import com.convivo.gastoscomunes.config.MailProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
+import jakarta.mail.Multipart;
+import jakarta.mail.Session;
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeMessage;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 
 @ExtendWith(MockitoExtension.class)
@@ -75,7 +80,7 @@ class NotificacionGastosConsumerTest {
                 .save(org.mockito.ArgumentMatchers.argThat(
                         e -> e.getTicketId().equals("t-1") && e.getEstado() == EstadoNotificacion.COMPLETADO));
         verify(canal).basicAck(TAG, false);
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(mailSender, never()).send(any(MimeMessage.class));
     }
 
     @Test
@@ -84,13 +89,52 @@ class NotificacionGastosConsumerTest {
                 new ObjectMapper(), repository, mailSender, new MailProperties(true, "no-reply@convivo.cl"));
         when(repository.findById("t-1")).thenReturn(Optional.empty());
         when(repository.saveAndFlush(any(EmailEnviado.class))).thenReturn(new EmailEnviado("t-1"));
+        when(mailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
 
         consumerConMail.recibir(mensaje(JSON), canal);
 
-        verify(mailSender)
-                .send(org.mockito.ArgumentMatchers.argThat((SimpleMailMessage m) -> "no-reply@convivo.cl".equals(m.getFrom())
-                        && java.util.Arrays.asList(m.getTo()).contains("a@b.cl")
-                        && m.getSubject().contains("en proceso de generación")));
+        ArgumentCaptor<MimeMessage> enviado = ArgumentCaptor.forClass(MimeMessage.class);
+        verify(mailSender).send(enviado.capture());
+        MimeMessage m = enviado.getValue();
+        assertEquals("no-reply@convivo.cl", ((InternetAddress) m.getFrom()[0]).getAddress());
+        assertEquals("a@b.cl", ((InternetAddress) m.getAllRecipients()[0]).getAddress());
+        assertTrue(m.getSubject().contains("en proceso de generación"));
+        String contenido = contenido(m.getContent());
+        assertTrue(contenido.contains("<html"), "falta la parte HTML");
+        assertTrue(contenido.contains("101-A") && contenido.contains("t-1"), "faltan unidad o ticket");
+    }
+
+    @Test
+    void escapaElHtmlDeLosValoresQueVienenDelMensaje() throws Exception {
+        NotificacionGastosConsumer consumerConMail = new NotificacionGastosConsumer(
+                new ObjectMapper(), repository, mailSender, new MailProperties(true, "no-reply@convivo.cl"));
+        when(repository.findById("t-1")).thenReturn(Optional.empty());
+        when(repository.saveAndFlush(any(EmailEnviado.class))).thenReturn(new EmailEnviado("t-1"));
+        when(mailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
+
+        consumerConMail.recibir(
+                mensaje("""
+                        {"ticket_id":"t-1","email":"a@b.cl","unidad_id":"<script>x</script>"}"""),
+                canal);
+
+        ArgumentCaptor<MimeMessage> enviado = ArgumentCaptor.forClass(MimeMessage.class);
+        verify(mailSender).send(enviado.capture());
+        String html = contenido(enviado.getValue().getContent());
+        assertTrue(html.contains("&lt;script&gt;"), "el valor debe ir escapado en el HTML");
+    }
+
+    private static String contenido(Object parte) throws Exception {
+        if (parte instanceof String s) {
+            return s;
+        }
+        if (parte instanceof Multipart mp) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < mp.getCount(); i++) {
+                sb.append(contenido(mp.getBodyPart(i).getContent()));
+            }
+            return sb.toString();
+        }
+        return "";
     }
 
     @Test
