@@ -497,7 +497,7 @@ export SPRING_PROFILES_ACTIVE=aws
 java -jar target/ms-gastos-comunes.jar   # requiere aprobación explícita — ver sección 12
 
 # rollback
-# revertir al tag de la versión anterior y redeployar esa imagen (el runbook vivia en despliegue-ecs-fargate.md, raiz del workspace; no existe -- verificado 2026-10-14, usar terraform-cloud/AGENTS.md como referencia)
+# revertir al tag de la versión anterior y redeployar esa imagen (arquitectura vigente)
 ```
 
 En `aws`: Flyway corre las migraciones de `src/main/resources/db/migration` sobre Oracle (`ddl-auto=validate`, nunca autogenera esquema en producción), el listener de RabbitMQ arranca automáticamente, y Eureka/Config Server se intentan usar pero de forma **tolerante** — si `CONFIG_SERVER_URL` no responde, el arranque continúa (`optional:configserver:`) en vez de fallar.
