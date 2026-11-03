@@ -432,7 +432,7 @@ git checkout develop && git pull origin develop
 - Nunca rebase de una rama ya pusheada que otros puedan tener checkout local (`feature/*` propia sí se puede rebasear antes de publicar).
 - Nunca borrar `release/*`/`hotfix/*` sin haber mergeado a ambos destinos — si se aborta, documentarlo en el PR/issue antes de borrar.
 
-**Branch protection / PR:** `main` y `develop` protegidas, requieren PR + al menos 1 review antes de merge, checks de CI en verde obligatorios (pendiente de configurar — ver §15). `release/*` y `hotfix/*` heredan la misma exigencia por ser destino de merge a `main`. `feature/*` sin restricción, es la rama de trabajo diario.
+**Branch protection / PR:** `main` y `develop` protegidas, requieren PR, sin review obligatorio (equipo de dos personas: a menudo no hay otra persona que apruebe), checks de CI en verde obligatorios (pendiente de configurar — ver §15). `release/*` y `hotfix/*` heredan la misma exigencia por ser destino de merge a `main`. `feature/*` sin restricción, es la rama de trabajo diario.
 
 **Advertencia del autor (Driessen 2020):** Git Flow fue concebido para software con versionado explícito, varias versiones vivas en producción a la vez. Este microservicio versiona con semver (`pom.xml`) y tags de Docker/imagen, y ya lo usa en la práctica (release 0.2.0 vía PR #6), por lo que adopta Git Flow full conscientemente en vez del GitHub Flow más simple.
 
