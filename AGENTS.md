@@ -432,7 +432,9 @@ git checkout develop && git pull origin develop
 - Nunca rebase de una rama ya pusheada que otros puedan tener checkout local (`feature/*` propia sí se puede rebasear antes de publicar).
 - Nunca borrar `release/*`/`hotfix/*` sin haber mergeado a ambos destinos — si se aborta, documentarlo en el PR/issue antes de borrar.
 
-**Branch protection / PR:** `main` y `develop` protegidas, requieren PR, sin review obligatorio (equipo de dos personas: a menudo no hay otra persona que apruebe), checks de CI en verde obligatorios (pendiente de configurar — ver §15). `release/*` y `hotfix/*` heredan la misma exigencia por ser destino de merge a `main`. `feature/*` sin restricción, es la rama de trabajo diario.
+**Branch protection / PR:** `main` y `develop` protegidas, requieren PR, sin review obligatorio (equipo de dos personas: a menudo no hay otra persona que apruebe), con la rama al día (`strict`) y conversaciones resueltas; ni los administradores pueden saltarse las reglas (`enforce_admins`) y no hay force push ni borrado; checks de CI en verde obligatorios. `release/*` y `hotfix/*` heredan la misma exigencia por ser destino de merge a `main`. `feature/*` sin restricción, es la rama de trabajo diario.
+
+**Checks obligatorios de este repo** (estado verificado el 2026-11-03): en `develop`, `test`; en `main`, los mismos y además `pr-title`, `dependency-review`, `workflow-lint`, `Analyze (java-kotlin)`, `Analyze (actions)`. El auto-merge está permitido: Dependabot lo activa con squash solo para parches y versiones menores (`.github/workflows/dependabot-auto.yml`) y los saltos de versión mayor se mergean a mano. Detalle y comparación con los demás repos: `AGENTS.md` raíz del workspace, §11.3.
 
 **Advertencia del autor (Driessen 2020):** Git Flow fue concebido para software con versionado explícito, varias versiones vivas en producción a la vez. Este microservicio versiona con semver (`pom.xml`) y tags de Docker/imagen, y ya lo usa en la práctica (release 0.2.0 vía PR #6), por lo que adopta Git Flow full conscientemente en vez del GitHub Flow más simple.
 
@@ -518,7 +520,7 @@ Este archivo es orientativo, no mecánicamente forzado — un agente puede omiti
 | Formato y linter (§5, §8)                        | — (sin Checkstyle/PMD instalado) | pendiente                                                | sí, por ahora             |
 | Mensaje de commit (§11)                          | — (sin commitlint)               | pendiente                                                | sí: validación manual     |
 | Cobertura (§7)                                   | —                                | pendiente: sin JaCoCo configurado                        | sí, por ahora             |
-| Ramas y protecciones (§11.3)                     | —                                | pendiente: sin branch protection confirmada en el remoto | sí, por ahora             |
+| Ramas y protecciones (§11.3)                     | —                                | branch protection del remoto (verificada el 2026-11-03) | —             |
 | Criterio de diseño, límites del agente (§6, §12) | —                                | —                                                        | sí: no son automatizables |
 
 Regla de dedo: si algo importa y **puede** verificarse mecánicamente, no dejarlo solo escrito acá. Si no puede, escribirlo con el porqué — es lo único que lo sostiene. Prioridad de mejora real: este proyecto necesita CI antes que cualquier otra fila de la tabla, porque hoy ninguna regla crítica tiene refuerzo mecánico.
@@ -579,7 +581,7 @@ Protege la información sensible que el software procesa. Acá va el control imp
 | Control         | Nombre                                                    | Dónde vive en este proyecto                                                                                         |
 | --------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | A.8.2 / A.8.3   | Derechos de acceso privilegiado / Restricción de acceso   | `RolConvivo.esGestorCondominio()` + ownership por unidad en `GastoComunService` (§10 A01)                           |
-| A.8.4           | Acceso al código fuente                                   | permisos de repositorio git y branch protection (§11.3, pendiente confirmar en el remoto)                           |
+| A.8.4           | Acceso al código fuente                                   | permisos de repositorio git y branch protection (§11.3)                           |
 | A.8.5           | Autenticación segura                                      | delegada a Entra ID + `NimbusJwtDecoder` (§10 A07); sin passwords locales                                           |
 | A.8.8           | Gestión de vulnerabilidades técnicas                      | lockfile de Maven (`pom.xml` con versiones fijadas), pendiente escaneo real de CVEs con red disponible (§10 A03)    |
 | A.8.9           | Gestión de configuración                                  | `application-*.yml` por perfil, sin defaults inseguros en `aws` (`ddl-auto: validate`)                              |
