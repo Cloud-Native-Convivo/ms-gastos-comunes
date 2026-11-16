@@ -123,6 +123,43 @@ class NotificacionGastosConsumerTest {
         assertTrue(html.contains("&lt;script&gt;"), "el valor debe ir escapado en el HTML");
     }
 
+    @Test
+    void siFaltaElDestinatarioONoHayUnidadNoSeInventanDatosNiSeEnvia() throws Exception {
+        NotificacionGastosConsumer consumerConMail = new NotificacionGastosConsumer(
+                new ObjectMapper(), repository, mailSender, new MailProperties(true, "no-reply@convivo.cl"));
+        when(repository.findById(any())).thenReturn(Optional.empty());
+        when(repository.saveAndFlush(any(EmailEnviado.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        consumerConMail.recibir(mensaje("""
+                {"ticket_id":"t-sin-correo","unidad_id":"101-A"}"""), canal);
+        consumerConMail.recibir(mensaje("""
+                {"ticket_id":"t-sin-unidad","email":"a@b.cl"}"""), canal);
+        consumerConMail.recibir(mensaje("""
+                {"ticket_id":"t-vacio","email":"  ","unidad_id":"101-A"}"""), canal);
+
+        verify(mailSender, never()).send(any(MimeMessage.class));
+        verify(mailSender, never()).createMimeMessage();
+    }
+
+    @Test
+    void elCorreoLlevaLaUnidadYElPeriodoDelEventoSinValoresFijos() throws Exception {
+        NotificacionGastosConsumer consumerConMail = new NotificacionGastosConsumer(
+                new ObjectMapper(), repository, mailSender, new MailProperties(true, "no-reply@convivo.cl"));
+        when(repository.findById("t-2")).thenReturn(Optional.empty());
+        when(repository.saveAndFlush(any(EmailEnviado.class))).thenReturn(new EmailEnviado("t-2"));
+        when(mailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
+
+        consumerConMail.recibir(mensaje("""
+                {"ticket_id":"t-2","email":"vecino@ejemplo.cl","unidad_id":"Casa M202","mes":"Noviembre 2026"}"""), canal);
+
+        ArgumentCaptor<MimeMessage> enviado = ArgumentCaptor.forClass(MimeMessage.class);
+        verify(mailSender).send(enviado.capture());
+        String contenido = contenido(enviado.getValue().getContent());
+        assertEquals("vecino@ejemplo.cl", ((InternetAddress) enviado.getValue().getAllRecipients()[0]).getAddress());
+        assertTrue(contenido.contains("Casa M202") && contenido.contains("Noviembre 2026"), "faltan unidad o período");
+        assertTrue(!contenido.contains("301-A") && !contenido.contains("Agosto 2026"), "no debe haber valores fijos");
+    }
+
     private static String contenido(Object parte) throws Exception {
         if (parte instanceof String s) {
             return s;
