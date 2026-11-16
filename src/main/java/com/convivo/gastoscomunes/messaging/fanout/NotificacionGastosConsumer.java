@@ -116,9 +116,16 @@ public class NotificacionGastosConsumer {
 
     public void procesarNotificacion(JsonNode root) {
         String ticketId = root.path("ticket_id").asText();
-        String email = root.has("email") ? root.path("email").asText() : "residente@convivo.cl";
-        String unidadId = root.path("unidad_id").asText("301-A");
+        String email = root.path("email").asText("").trim();
+        String unidadId = root.path("unidad_id").asText("").trim();
         String mes = root.has("mes") ? root.path("mes").asText() : null;
+
+        // Sin destinatario o sin unidad real no se inventa un correo: es mejor no avisar que avisar a
+        // una dirección ajena o de una unidad que no es la del residente.
+        if (email.isBlank() || unidadId.isBlank()) {
+            log.warn("Notificacion de email sin destinatario o sin unidad: no se envia. ticketId='{}'", ticketId);
+            return;
+        }
 
         if (mailProperties.habilitado()) {
             mailSender.send(construirCorreo(email, ticketId, unidadId, mes));
