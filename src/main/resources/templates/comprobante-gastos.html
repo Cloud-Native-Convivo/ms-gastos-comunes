@@ -3,178 +3,263 @@
 <head>
   <meta charset="UTF-8"/>
   <title>Comprobante de Gastos Comunes</title>
+  <!--
+    Identidad Convivo: tinta #00201B, teal #0D9488 / #005047, menta #5EEAD4, ámbar #EAB308 (pendiente).
+    OpenHTMLtoPDF solo entiende CSS 2.1: sin flexbox, grid ni variables; por eso todo es tablas y bloques.
+    La cifra usa la serif base del PDF (alto contraste, como el titular de la web) porque no se embebe una fuente.
+  -->
   <style>
     @page {
       size: letter;
-      margin: 18mm 15mm 18mm 15mm;
+      margin: 0;
     }
     body {
-      font-family: Arial, Helvetica, sans-serif;
-      color: #0f172a;
-      background-color: #ffffff;
       margin: 0;
       padding: 0;
-      font-size: 13px;
-      line-height: 1.5;
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #00201B;
+      background-color: #ffffff;
     }
-    .header {
-      border-bottom: 3px solid #0d9488;
-      padding-bottom: 12px;
-      margin-bottom: 24px;
+    .banda {
+      background-color: #00201B;
+      padding: 14mm 16mm 13mm 16mm;
     }
-    .brand-title {
-      font-size: 26px;
+    .marca {
+      font-family: serif;
+      font-size: 24px;
       font-weight: bold;
-      color: #0d9488;
+      color: #ffffff;
       margin: 0;
     }
-    .doc-subtitle {
-      font-size: 14px;
-      color: #64748b;
+    .marca span {
+      color: #5EEAD4;
+    }
+    .doc {
       margin: 2px 0 0 0;
+      font-size: 12px;
+      color: #5EEAD4;
     }
-    .info-grid {
-      width: 100%;
-      margin-bottom: 24px;
-    }
-    .info-card {
-      background-color: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      padding: 12px 16px;
-    }
-    .info-card h4 {
-      margin: 0 0 8px 0;
-      color: #475569;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .info-card p {
-      margin: 2px 0;
+    .total-etiqueta {
+      margin: 30mm 0 0 0;
       font-size: 13px;
+      color: #CBD5E1;
     }
-    .info-card strong {
-      color: #0f172a;
+    .total-cifra {
+      margin: 0;
+      font-family: serif;
+      font-size: 92px;
+      font-weight: bold;
+      line-height: 1;
+      color: #ffffff;
+    }
+    .total-cifra span {
+      color: #5EEAD4;
+    }
+    .situacion {
+      margin: 12px 0 0 0;
+      font-size: 15px;
+      font-weight: bold;
+    }
+    .marcador {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+    }
+    .cuerpo {
+      padding: 11mm 16mm 0 16mm;
+    }
+    table.datos {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 9mm;
+    }
+    table.datos td {
+      vertical-align: top;
+      padding: 0 12px 0 0;
+    }
+    .etiqueta {
+      margin: 0 0 2px 0;
+      font-size: 10px;
+      color: #64748B;
+    }
+    .valor {
+      margin: 0;
+      font-family: serif;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .folio {
+      margin: 3px 0 0 0;
+      font-family: Courier, monospace;
+      font-size: 10px;
+    }
+    h2 {
+      margin: 0 0 3mm 0;
+      font-family: serif;
+      font-size: 24px;
+      font-weight: bold;
+    }
+    table.tira {
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: separate;
+      border-spacing: 2px 0;
+      margin: 0 -2px 6mm -2px;
+    }
+    table.tira td {
+      height: 20px;
+      padding: 0;
     }
     table.detalle {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 24px;
-    }
-    table.detalle th {
-      background-color: #f1f5f9;
-      color: #334155;
-      text-align: left;
-      padding: 10px 12px;
-      font-size: 12px;
-      font-weight: bold;
-      border-bottom: 2px solid #cbd5e1;
     }
     table.detalle td {
-      padding: 10px 12px;
-      border-bottom: 1px solid #e2e8f0;
-      font-size: 13px;
+      padding: 7px 0;
+      border-bottom: 1px dotted #64748B;
+      vertical-align: top;
+      page-break-inside: avoid;
     }
-    table.detalle tr:nth-child(even) {
-      background-color: #fafafa;
-    }
-    .monto-col {
-      text-align: right;
-    }
-    .totales-container {
-      width: 100%;
-      margin-bottom: 30px;
-    }
-    .totales-box {
-      width: 280px;
-      float: right;
-      background-color: #f0fdfa;
-      border: 1px solid #99f6e4;
-      border-radius: 6px;
-      padding: 14px 16px;
-      text-align: right;
-    }
-    .totales-box p {
-      margin: 4px 0;
-    }
-    .total-monto {
-      font-size: 20px;
-      font-weight: bold;
-      color: #0f766e;
-    }
-    .estado-badge {
+    .muestra {
       display: inline-block;
-      padding: 3px 10px;
-      border-radius: 12px;
-      font-size: 11px;
-      font-weight: bold;
-      background-color: #ccfbf1;
-      color: #0f766e;
+      width: 10px;
+      height: 10px;
+      margin-top: 4px;
     }
-    .footer {
-      clear: both;
-      margin-top: 40px;
-      padding-top: 16px;
-      border-top: 1px solid #e2e8f0;
-      text-align: center;
-      color: #94a3b8;
-      font-size: 11px;
+    .concepto {
+      margin: 0;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    .porcentaje {
+      margin: 0;
+      font-size: 10px;
+      color: #64748B;
+    }
+    .monto {
+      text-align: right;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .sin-gastos {
+      margin: 0;
+      font-size: 13px;
+      color: #64748B;
+    }
+    table.cierre {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 5mm;
+    }
+    .cierre-etiqueta {
+      font-size: 12px;
+      color: #64748B;
+      vertical-align: bottom;
+    }
+    .cierre-cifra {
+      text-align: right;
+      font-family: serif;
+      font-size: 34px;
+      font-weight: bold;
+    }
+    .talon {
+      margin: 16mm 16mm 0 16mm;
+      border-top: 2px dashed #64748B;
+      padding-top: 5mm;
+    }
+    .talon p {
+      margin: 0;
+      font-size: 10px;
+      color: #64748B;
+    }
+    .talon .folio {
+      color: #00201B;
+    }
+    .aviso {
+      margin: 8mm 16mm 0 16mm;
+      font-size: 9px;
+      color: #64748B;
     }
   </style>
 </head>
 <body>
 
-  <div class="header">
-    <h1 class="brand-title">CONVIVO</h1>
-    <p class="doc-subtitle">Comprobante Oficial de Gastos Comunes</p>
+  <div class="banda"
+       th:with="acento=${estado == 'Pendiente' ? '#EAB308' : (estado == 'Al día' ? '#5EEAD4' : '#CBD5E1')}">
+    <p class="marca">Convivo<span>.</span></p>
+    <p class="doc">Comprobante de gastos comunes</p>
+
+    <p class="total-etiqueta">Total del período</p>
+    <p class="total-cifra"><span>$</span><span style="color: #ffffff;" th:text="${total}">0</span></p>
+    <p class="situacion" th:style="'color: ' + ${acento}">
+      <span class="marcador" th:style="'background-color: ' + ${acento}"></span>
+      <span th:text="${estado}">Al día</span>
+    </p>
   </div>
 
-  <table class="info-grid">
-    <tr>
-      <td style="width: 50%; vertical-align: top; padding-right: 10px;">
-        <div class="info-card">
-          <h4>Datos de la Unidad</h4>
-          <p><strong>Unidad:</strong> <span th:text="${unidad}">Unidad 301</span></p>
-          <p><strong>Período:</strong> <span th:text="${mes}">Agosto 2026</span></p>
-        </div>
-      </td>
-      <td style="width: 50%; vertical-align: top; padding-left: 10px;">
-        <div class="info-card">
-          <h4>Estado y Folio</h4>
-          <p><strong>Folio / Ticket:</strong> <span th:text="${ticketId}">ticket-001</span></p>
-          <p><strong>Situación:</strong> <span class="estado-badge" th:text="${estado}">Al día</span></p>
-        </div>
-      </td>
-    </tr>
-  </table>
-
-  <table class="detalle">
-    <thead>
+  <div class="cuerpo">
+    <table class="datos">
       <tr>
-        <th style="width: 70%;">Concepto / Categoría</th>
-        <th class="monto-col" style="width: 30%;">Monto</th>
+        <td style="width: 28%;">
+          <p class="etiqueta">Unidad</p>
+          <p class="valor" th:text="${unidad}">Unidad 301</p>
+        </td>
+        <td style="width: 28%;">
+          <p class="etiqueta">Período</p>
+          <p class="valor" th:text="${mes}">Agosto 2026</p>
+        </td>
+        <td style="width: 44%;">
+          <p class="etiqueta">Folio</p>
+          <p class="folio" th:text="${ticketId}">ticket-001</p>
+        </td>
       </tr>
-    </thead>
-    <tbody>
-      <tr th:each="item : ${items}">
-        <td th:text="${item.concepto}">Gasto común base</td>
-        <td class="monto-col" th:text="'$' + ${item.monto}">$0</td>
-      </tr>
-    </tbody>
-  </table>
+    </table>
 
-  <div class="totales-container">
-    <div class="totales-box">
-      <p style="color: #64748b; font-size: 12px; margin: 0;">Total a Pagar</p>
-      <p class="total-monto" th:text="'$' + ${total}">$0</p>
-      <p style="font-size: 11px; color: #0d9488; margin-top: 6px;">Documento emitido electrónicamente</p>
+    <h2>Desglose del mes</h2>
+
+    <p class="sin-gastos" th:if="${#lists.isEmpty(items)}">No hay gastos registrados para este período.</p>
+
+    <div th:unless="${#lists.isEmpty(items)}"
+         th:with="paleta=${ {'#00201B', '#0D9488', '#005047', '#5EEAD4', '#64748B', '#CBD5E1'} }">
+      <table class="tira">
+        <tr>
+          <!-- ancho mínimo 1%: con todos los anchos en 0 el motor de PDF divide por cero -->
+          <td th:each="item, fila : ${items}"
+              th:with="ancho=${item['pct'] == null or item['pct'] == '0' ? '1' : item['pct']}"
+              th:style="'width: ' + ${ancho} + '%; background-color: ' + ${paleta[fila.index % 6]}"></td>
+        </tr>
+      </table>
+
+      <table class="detalle">
+        <tr th:each="item, fila : ${items}">
+          <td style="width: 18px;">
+            <span class="muestra" th:style="'background-color: ' + ${paleta[fila.index % 6]}"></span>
+          </td>
+          <td>
+            <p class="concepto" th:text="${item.concepto}">Gasto común</p>
+            <p class="porcentaje" th:if="${item['pct'] != null}" th:text="${item['pct']} + '% del total'">0% del total</p>
+          </td>
+          <td class="monto" th:text="'$' + ${item.monto}">$0</td>
+        </tr>
+      </table>
     </div>
+
+    <table class="cierre">
+      <tr>
+        <td class="cierre-etiqueta">Total del período</td>
+        <td class="cierre-cifra" th:text="'$' + ${total}">$0</td>
+      </tr>
+    </table>
   </div>
 
-  <div class="footer">
-    <p>Convivo SpA — Plataforma de Gestión de Condominios — Este documento es informativo y respalda el estado de cobro registrado en el sistema.</p>
+  <div class="talon">
+    <p>Talón de control &#183; conserva este folio si necesitas consultar el cobro</p>
+    <p class="folio" th:text="${ticketId} + ' &#183; ' + ${unidad} + ' &#183; ' + ${mes}">ticket-001</p>
   </div>
+
+  <p class="aviso">Convivo SpA. Plataforma de gestión de condominios. Este documento es informativo y respalda el estado de cobro registrado en el sistema.</p>
 
 </body>
 </html>

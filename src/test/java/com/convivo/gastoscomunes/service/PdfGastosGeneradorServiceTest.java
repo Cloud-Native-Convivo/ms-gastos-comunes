@@ -29,7 +29,7 @@ class PdfGastosGeneradorServiceTest {
     }
 
     @Test
-    void debeGenerarDocumentoPdfValidoDesdePlantillaThymeleaf() {
+    void debeGenerarDocumentoPdfValidoDesdePlantillaThymeleaf() throws Exception {
         byte[] pdfBytes = generador.generarComprobante(
                 "ticket-test-1",
                 "Unidad 301 — Torre A",
@@ -44,8 +44,37 @@ class PdfGastosGeneradorServiceTest {
         );
 
         assertThat(pdfBytes).isNotEmpty();
+        assertThat(textoDe(pdfBytes)).contains("Portería y Seguridad", "$350.000", "Unidad 301", "Agosto 2026", "ticket-test-1");
         assertThat(new String(pdfBytes, 0, 5)).isEqualTo("%PDF-");
         assertThat(storage.obtenerPdf("ticket-test-1")).isPresent();
         assertThat(storage.obtenerPdf("ticket-test-1").get()).isEqualTo(pdfBytes);
+    }
+
+    @Test
+    void elDesgloseMuestraElPorcentajeDeCadaConcepto() throws Exception {
+        byte[] pdf = generador.generarComprobante(
+                "t-pct", "Unidad Casa M202", "Noviembre 2026",
+                List.of(
+                        Map.of("concepto", "Gasto común ordinario", "monto", "78.000", "pct", "75"),
+                        Map.of("concepto", "Fondo de reserva", "monto", "26.000", "pct", "25")),
+                "104.000", "Pendiente");
+
+        assertThat(textoDe(pdf)).contains("75% del total", "25% del total", "$104.000", "Pendiente");
+    }
+
+    @Test
+    void sinGastosElComprobanteLoDiceYNoMuestraDesglose() throws Exception {
+        byte[] pdf = generador.generarComprobante(
+                "t-vacio", "Unidad Casa M202", "Noviembre 2026", List.of(), "0", "Sin gastos registrados");
+
+        assertThat(textoDe(pdf))
+                .contains("No hay gastos registrados para este período.", "$0", "Sin gastos registrados")
+                .doesNotContain("% del total");
+    }
+
+    private static String textoDe(byte[] pdf) throws Exception {
+        try (org.apache.pdfbox.pdmodel.PDDocument documento = org.apache.pdfbox.pdmodel.PDDocument.load(pdf)) {
+            return new org.apache.pdfbox.text.PDFTextStripper().getText(documento);
+        }
     }
 }
